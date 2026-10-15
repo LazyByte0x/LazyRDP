@@ -64,10 +64,10 @@ Write-Ok 'runneradmin password rotated'
 # Dedicated session account with admin and RDP group membership.
 $sessionPassword = New-RandomPassword
 $sessionPasswordSecure = ConvertTo-SecurePassword $sessionPassword
-Set-LocalUserPassword -UserName 'ditzz' -Password $sessionPasswordSecure
-Add-LocalGroupMemberSafe -GroupName 'Administrators' -MemberName 'ditzz'
-Add-LocalGroupMemberSafe -GroupName 'Remote Desktop Users' -MemberName 'ditzz'
+Set-LocalUserPassword -UserName 'lazyuser' -Password $sessionPasswordSecure
+Add-LocalGroupMemberSafe -GroupName 'Administrators' -MemberName 'lazyuser'
+Add-LocalGroupMemberSafe -GroupName 'Remote Desktop Users' -MemberName 'lazyuser'
 Add-GithubEnv -Name 'RDP_SESSION_PASS' -Value $sessionPassword
-Write-Ok "Session user 'ditzz' provisioned (Administrators + Remote Desktop Users)"
+Write-Ok "Session user 'lazyuser' provisioned (Administrators + Remote Desktop Users)"
 
 exit 0

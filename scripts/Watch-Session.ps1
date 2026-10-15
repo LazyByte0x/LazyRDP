@@ -23,7 +23,7 @@ function Get-SessionMessage {
 Host (Tailscale IP): $Ip
 Username 1: runneradmin
 Password 1: $($env:RDP_ADMIN_PASS)
-Username 2: ditzz
+Username 2: lazyuser
 Password 2: $($env:RDP_SESSION_PASS)
 
 Ends: $endsAt (UTC). Environment is destroyed afterwards - store nothing in the session.
@@ -57,7 +57,7 @@ if ($delivered.Count -gt 0) {
 |----------|-------|
 | **Address (Tailscale IP)** | ``$currentIp`` |
 | **Username 1** | ``runneradmin`` |
-| **Username 2** | ``ditzz`` |
+| **Username 2** | ``lazyuser`` |
 
 📬 **Passwords were sent to your private channel(s): $($delivered -join ', ')** - they are intentionally not shown here.
 "@
@@ -68,7 +68,7 @@ if ($delivered.Count -gt 0) {
 | **Address (Tailscale IP)** | ``$currentIp`` |
 | **Username 1** | ``runneradmin`` |
 | **Password 1** | ``$($env:RDP_ADMIN_PASS)`` |
-| **Username 2** | ``ditzz`` |
+| **Username 2** | ``lazyuser`` |
 | **Password 2** | ``$($env:RDP_SESSION_PASS)`` |
 
 > ⚠️ **Privacy note:** no notification channel was configured or reachable, so

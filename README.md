@@ -29,7 +29,7 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 | Hardware | 4 vCPUs, 16 GB RAM, ~14 GB free disk (up to ~90 GB with `storage_boost`) |
 | Session lifetime | 1–6 hours, your choice (default 6) |
 | Access | RDP over Tailscale only — no public IPs, no open ports |
-| Accounts | `runneradmin` (main, personalized) and `ditzz` (clean spare), **randomly generated passwords per run** |
+| Accounts | `runneradmin` (main, personalized) and `lazyuser` (clean spare), **randomly generated passwords per run** |
 | Credentials | Delivered to your **Telegram and/or Discord**; shown in the Summary only as a fallback |
 
 ---
@@ -148,4 +148,4 @@ This project is for educational and experimental purposes. It is an **ephemeral 
 
 [MIT](LICENSE)
 
-Maintained by **[LazyByte0x](https://github.com/LazyByte0x)** — based on the original v7.3 project by **ditzz**, with architecture ideas from the open-source RDP-on-Actions community (notably XyRDP's status and hardening patterns).
+Maintained by **[LazyByte0x](https://github.com/LazyByte0x)** — registry hardening, storage-boost and session-resilience patterns inspired by [XyRDP](https://github.com/xykal/XyRDP).
