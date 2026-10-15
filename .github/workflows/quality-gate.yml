@@ -1,0 +1,51 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/**'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint workflows and scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: '📦 Checkout'
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0 (node24)
+
+      - name: '🔍 Validate workflow files (actionlint)'
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
+
+      - name: '🔍 Validate PowerShell scripts (PSScriptAnalyzer)'
+        shell: pwsh
+        run: |
+          try {
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction Stop
+            if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+              Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force -ErrorAction Stop
+            }
+          } catch {
+            Write-Host "::error::PSScriptAnalyzer setup failed: $($_.Exception.Message)"
+            exit 1
+          }
+          $findings = Invoke-ScriptAnalyzer -Path ./scripts -Recurse -Severity Error
+          foreach ($f in $findings) {
+            $relPath = Resolve-Path -Relative -Path $f.ScriptPath
+            Write-Host "::error file=$relPath,line=$($f.Line),col=$($f.Column)::[$($f.RuleName)] $($f.Message)"
+          }
+          $findings | Format-Table -AutoSize
+          if (@($findings).Count -gt 0) { exit 1 }
