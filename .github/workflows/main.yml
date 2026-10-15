@@ -24,7 +24,7 @@ on:
       wallpaper_url:
         description: '(Optional) Direct image URL (.jpg/.png) for the desktop wallpaper'
         required: false
-        default: 'https://4kwallpapers.com/images/wallpapers/wuthering-waves-v2-3840x2160-24011.jpg'
+        default: 'https://4kwallpapers.com/images/wallpapers/gargantua-black-3840x2160-9621.jpg'
       session_hours:
         description: 'Session lifetime in hours (1-6). Shuts down gracefully before the platform cap.'
         required: false
