@@ -10,8 +10,6 @@
 
 A fully automated, customizable remote desktop session deployed from GitHub Actions and reachable only through your own private Tailscale network. Credentials are delivered **privately** to your Telegram or Discord the moment the session is ready. Sessions are ephemeral: the machine exists for the lifetime of the workflow run and is destroyed afterwards.
 
-> LazyRDP continues the `Windows-11-Ultimate-RDP` v7.5 lineage with a rebuilt delivery and resilience layer.
-
 ---
 
 ## ⚠️ Read before running
@@ -25,8 +23,8 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 
 | Property | Value |
 |----------|-------|
-| Operating system | Windows Server 2025 (GitHub's `windows-latest` image — despite the historical project name, it is not a Windows 11 desktop) |
-| Hardware | 4 vCPUs, 16 GB RAM, ~14 GB free disk (up to ~90 GB with `storage_boost`) |
+| Operating system | Windows Server 2025 (GitHub's `windows-latest` image — a server edition, not a Windows 11 desktop) |
+| Hardware | 4 vCPUs, 16 GB RAM, ~14 GB free disk (more with `storage_boost`) |
 | Session lifetime | 1–6 hours, your choice (default 6) |
 | Access | RDP over Tailscale only — no public IPs, no open ports |
 | Accounts | `runneradmin` (main, personalized) and `lazyuser` (clean spare), **randomly generated passwords per run** |
@@ -85,7 +83,7 @@ If a second run starts while a session is live, the new run replaces the old one
 
 ### 6. Connect
 
-1. Wait for the run — when the session is ready, **your Telegram/Discord receives the IP, both accounts, and passwords**.
+1. Wait for the run — when the session is ready, **your Telegram/Discord receives the IP, both accounts, and passwords**. (If you skipped step 3, no message is sent — passwords are then only recoverable from the raw log of the "Publish summary" step, env block.)
 2. The run **Summary** always shows the address, the end time, and step-by-step instructions; it shows passwords only if no channel was configured or delivery failed.
 3. Install the Tailscale client on your device, sign in to the same tailnet, then connect with any RDP client to the `100.x.x.x` address.
 4. **Sign in as `runneradmin`** — that account carries all personalization (theme, wallpaper, mouse tuning, OBS profile).
@@ -114,11 +112,11 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 |---------|----------------------|
 | Run fails at pre-flight: `TAILSCALE_AUTH_KEY secret is not set` | Add the secret as described in step 4 |
 | Run fails at the Tailscale step | The auth key expired, is single-use, or was already consumed — generate a new Ephemeral + Reusable key |
-| Where are my passwords? | The Summary always masks them. Check your Telegram/Discord message; if neither was configured for that run, search the raw log of the "Publish summary" step for `RDP_ADMIN_PASS` (env block) — and set `RDP_PASSWORD` or the notification secrets for future runs |
+| Wrong credentials | Credentials differ per run and the Summary always masks them — read them from the notification message of **that specific run**; if no channel was configured for it, search the raw log of the "Publish summary" step for `RDP_ADMIN_PASS` (env block). For future runs, set `RDP_PASSWORD` or the notification secrets |
 | No Telegram/Discord message | Check the `NOTIFY: Telegram=... \| Discord=...` verdict line in the "Publish summary" step log. Secrets are snapshotted at run start — if you added them after starting, start a NEW run |
 | Cannot connect from your device | Your device must be signed in to the **same tailnet**; check the Tailscale client status before blaming the session |
 | IP stopped working mid-session | The watchdog repaired a drop and the IP changed — the Summary has an "IP UPDATED" section and your channels got the new address |
-| Wrong credentials | Credentials differ per run; read them from the **notification channel or the Summary of that specific run** |
+| Wrong credentials | Credentials differ per run; read them from the notification message of **that specific run** — if no channel was configured for it, search the raw log of the "Publish summary" step for `RDP_ADMIN_PASS` (env block) |
 | An application failed to install | The session still comes up; the last lines of the winget log are printed in the install step log — review them there, then rerun |
 | Session ended earlier than expected | The `session_hours` input elapsed, or a newer run replaced this one; the Summary shows the planned end time |
 | Job killed at exactly 6 hours | The platform cap — choose a lower `session_hours` value for graceful shutdown |
@@ -135,7 +133,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 - **Unambiguous delivery verdicts:** every channel prints a `NOTIFY: Telegram=DELIVERED|FAILED|NOT_CONFIGURED` line, the delivery state is published to a temp file the Summary step re-reads (no reliance on output capture), and the Summary clarifies that secrets are snapshotted at run start — adding secrets after starting a run requires a new run.
 
 ### v8.0
-- **Private credential delivery:** Telegram and/or Discord receive the full connection details when the session is ready; the Summary hides passwords unless no channel delivered (fallback keeps them reachable). New optional secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DISCORD_WEBHOOK_URL`.
+- **Private credential delivery:** Telegram and/or Discord receive the full connection details when the session is ready; the Summary hid passwords unless no channel delivered (a fallback behavior that v8.1 removed — the Summary now always masks). New optional secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DISCORD_WEBHOOK_URL`.
 - **Self-repairing sessions:** the keep-alive watchdog now verifies the actual Tailscale tailnet connection (not just the service), re-joins automatically after a drop (max 3 attempts), and if the IP changes it updates the Summary with an "IP UPDATED" section and re-notifies your channels.
 - **XyRDP-inspired hardening:** a registry-write ladder (existing-value write → create → `reg.exe add` → take key ownership) protects every registry write against TrustedInstaller-owned key denials documented on the 2025 runner images.
 - **New inputs:** `storage_boost` (frees tens of GB by removing Android SDK, Docker images, Go, Haskell, CodeQL and caches, reporting the real freed number) and `timezone` (validated Windows time zone Id applied to the session).
