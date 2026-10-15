@@ -64,12 +64,12 @@ function Add-LocalGroupMemberSafe {
 # and in the Summary privacy note.
 
 # Credential mode. If the user set the RDP_PASSWORD secret, both accounts use
-# it and nothing displays or transmits it anywhere (XyRDP-style masking - the
-# user knows their own password). Otherwise a random password is generated per
-# account and delivered through the private channels, with the Summary as the
-# last-resort fallback. In both modes the values are deliberately NOT masked
-# with ::add-mask:: - masking also redacts the job Summary, which must stay
-# able to show generated credentials when nothing was delivered.
+# it - registered secrets are already redacted by GitHub in every log. Otherwise
+# random passwords are generated per account, registered with ::add-mask:: (the
+# Summary no longer displays passwords, so masking cannot conflict with it -
+# this closes the env-dump leak in the raw step log), and delivered through the
+# private channels. In both modes the notification HTTP bodies are built from
+# variables, so the channels receive the real values regardless of masking.
 if (-not [string]::IsNullOrWhiteSpace($env:RDP_PASSWORD)) {
     if ($env:RDP_PASSWORD.Length -lt 8) {
         Write-Warn 'RDP_PASSWORD is shorter than 8 characters - consider a stronger one.'
@@ -81,8 +81,10 @@ if (-not [string]::IsNullOrWhiteSpace($env:RDP_PASSWORD)) {
 } else {
     $adminPassword = New-RandomPassword
     $sessionPassword = New-RandomPassword
+    Add-LogMask $adminPassword
+    Add-LogMask $sessionPassword
     Add-GithubEnv -Name 'PASSWORD_MODE' -Value 'generated'
-    Write-Ok 'Generated random per-run passwords'
+    Write-Ok 'Generated random per-run passwords (masked in logs)'
 }
 
 # Rotate the built-in runner admin password for this run only.

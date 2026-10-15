@@ -28,6 +28,15 @@ function Add-GithubEnv {
     Add-Content -Path $env:GITHUB_ENV -Value "$Name=$Value" -Encoding utf8
 }
 
+function Add-LogMask {
+    # Registers a value with GitHub's log redaction. Used for generated session
+    # passwords: the Summary never displays passwords anymore, so masking only
+    # closes the env-dump leak in the raw step log. Notification HTTP bodies are
+    # built from variables and are NOT affected by masking.
+    param([Parameter(Mandatory)][string]$Value)
+    Write-Host "::add-mask::$Value"
+}
+
 function Grant-RegistryKeyAccess {
     # Last-resort ladder step: some runner-image keys (e.g. CurrentVersion) are
     # owned by TrustedInstaller and deny value writes even to Administrators.
@@ -161,6 +170,7 @@ Export-ModuleMember -Function @(
     'Write-Ok',
     'Write-Warn',
     'Add-GithubEnv',
+    'Add-LogMask',
     'Set-RegistryValue',
     'New-RandomPassword',
     'ConvertTo-SecurePassword',
