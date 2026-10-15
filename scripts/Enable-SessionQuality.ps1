@@ -1,4 +1,4 @@
-# Session quality experiments: run the Windows audio stack so Remote Audio
+﻿# Session quality experiments: run the Windows audio stack so Remote Audio
 # playback/microphone redirection can work, and prefer the H.264/AVC 444
 # graphics mode for sharper text and color fidelity. Audio may be a no-op on
 # audio-less VMs; AVC444 is a preference that unsupported clients fall back
