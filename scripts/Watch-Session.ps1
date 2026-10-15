@@ -161,7 +161,12 @@ while ($true) {
                 Write-Warn "Could not start the Tailscale service: $($_.Exception.Message)"
             }
         }
-        & $tailscaleExe up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="winrdp-$env:GITHUB_RUN_ID" *> $null
+        # Same auth shape the Tailscale action uses for OAuth clients: the
+        # client secret authenticates as the client and the node joins
+        # tagged, ephemeral and preapproved (the ?params are part of the
+        # --authkey value). tag:lazyrdp must exist in the tailnet ACL -
+        # keep it in sync with the workflow's tags input.
+        & $tailscaleExe up --authkey="$($env:TAILSCALE_OAUTH_CLIENT_SECRET)?preauthorized=true&ephemeral=true" --advertise-tags=tag:lazyrdp --hostname="winrdp-$env:GITHUB_RUN_ID" *> $null
         Start-Sleep -Seconds 10
         $newIp = (& $tailscaleExe ip -4 2>$null | Select-Object -First 1)
         if ($newIp -and $newIp -ne $currentIp) {

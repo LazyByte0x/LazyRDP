@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/badge/Version-v8.2-blue?style=for-the-badge">
+    <img src="https://img.shields.io/badge/Version-v8.3-blue?style=for-the-badge">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows">
     <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
 </p>
@@ -38,10 +38,17 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 
 Click **Fork**, then work from your fork — not from this upstream copy.
 
-### 2. Create a Tailscale auth key (required)
+### 2. Connect your Tailscale tailnet (required)
 
-1. Open [Tailscale Admin Console > Settings > Keys](https://login.tailscale.com/admin/settings/keys).
-2. Generate an auth key that is **Ephemeral** and **Reusable** (a pre-signed key also works if your tailnet uses Tailnet Lock).
+The session joins your tailnet as a **tagged, ephemeral device** through a Tailscale **OAuth client** — OAuth clients never expire, so this is a one-time setup.
+
+1. **Define the node tag** — an OAuth client owns no user, so its devices must carry a tag. Open [Access Controls](https://login.tailscale.com/admin/acls) and merge this into the top-level JSON object:
+   ```json
+   "tagOwners": {
+     "tag:lazyrdp": ["autogroup:admin"]
+   }
+   ```
+2. **Create the OAuth client** — open [Settings > OAuth clients](https://login.tailscale.com/admin/settings/oauth) → **Generate OAuth client** → grant the writable **Auth Keys** scope, select the **`tag:lazyrdp`** tag, then copy the **Client ID** and **Client Secret** (the secret is shown only once).
 3. Ephemeral nodes are removed from your tailnet automatically when the session ends.
 
 ### 3. Set up credential delivery (optional but recommended)
@@ -61,7 +68,8 @@ In your fork: **Settings > Secrets and variables > Actions > New repository secr
 
 | Secret | Required | Purpose |
 |--------|----------|---------|
-| `TAILSCALE_AUTH_KEY` | ✅ | Network access (ephemeral + reusable key) |
+| `TAILSCALE_OAUTH_CLIENT_ID` | ✅ | Tailscale OAuth client for network access (never expires) |
+| `TAILSCALE_OAUTH_CLIENT_SECRET` | ✅ | The client's secret (`tskey-client-...`, shown once at creation) |
 | `RDP_PASSWORD` | recommended | **Own your session password.** The Summary never displays passwords; without notification secrets AND without `RDP_PASSWORD`, generated passwords are unreachable (pre-flight warns). Applies to both accounts; 8+ characters recommended. |
 | `TELEGRAM_BOT_TOKEN` | optional | Telegram credential delivery |
 | `TELEGRAM_CHAT_ID` | optional | Telegram credential delivery |
@@ -92,7 +100,7 @@ Go to **Actions > LazyRDP > Run workflow** and pick your options:
 
 ## ✨ What the setup does
 
-- **Pre-flight validation** — fails in seconds with a clear message if the Tailscale key is missing or the theme is invalid, verifies the wallpaper URL (falling back to the bundled default when it is not an image), and warns up-front when no credential delivery path (notification channels or `RDP_PASSWORD`) exists, instead of wasting minutes of setup first.
+- **Pre-flight validation** — fails in seconds with a clear message if the Tailscale OAuth secrets are missing or the theme is invalid, verifies the wallpaper URL (falling back to the bundled default when it is not an image), and warns up-front when no credential delivery path (notification channels or `RDP_PASSWORD`) exists, instead of wasting minutes of setup first.
 - **Secure provisioning** — enables RDP with Network Level Authentication and creates two accounts secured by per-run random passwords (or your own `RDP_PASSWORD`). Enables the OpenSSH Server on port 22 (same accounts, PowerShell 7 default shell) for terminal-only access. SSH and RDP firewall rules are restricted to the Tailscale subnet (`100.64.0.0/10`) — defense in depth on top of the hosting network's own inbound filtering. Registry writes go through a hardened ladder (existing-value write → create → `reg.exe` → take key ownership) borrowed from XyRDP's documented findings about TrustedInstaller-owned keys.
 - **Debloat in three levels** — `light` applies only the Ultimate Performance power plan and disables mouse acceleration; `standard` (the default, the historical behavior) also removes consumer bloatware and disables telemetry services; `deep` goes further with what a short-lived session safely tolerates: more AppX packages (Copilot, Teams, GameBar, Clipchamp, new Outlook, PowerAutomate, Cortana, Mail/Calendar), more services (Search indexing, Print Spooler, SysMain, the Xbox stack, error reporting), Windows Update held for the session so nothing reboots mid-use, and the Compatibility Appraiser task disabled. Session-critical components (Tailscale, the RDP listener, SSH) are never touched at any level.
 - **Storage boost (optional)** — frees tens of gigabytes by removing SDKs and toolchains a desktop session never uses, reporting the real freed number.
@@ -110,8 +118,8 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 
 | Symptom | Likely cause and fix |
 |---------|----------------------|
-| Run fails at pre-flight: `TAILSCALE_AUTH_KEY secret is not set` | Add the secret as described in step 4 |
-| Run fails at the Tailscale step | The auth key expired, is single-use, or was already consumed — generate a new Ephemeral + Reusable key |
+| Run fails at pre-flight: `TAILSCALE_OAUTH_CLIENT_ID / TAILSCALE_OAUTH_CLIENT_SECRET secrets are not set` | Create the OAuth client as described in step 2 and add both secrets (step 4) |
+| Run fails at the Tailscale step | The OAuth client lacks the writable **Auth Keys** scope, `tag:lazyrdp` is not defined in your tailnet's Access Controls, or the client was revoked — recreate the client as described in step 2 (OAuth clients never expire) |
 | Wrong credentials | Credentials differ per run and are always masked in the Summary **and the logs** — read them from the notification message of **that specific run**, or use your `RDP_PASSWORD` if you set one. If no channel delivered, the generated passwords are unrecoverable: start a new run with delivery configured (pre-flight warns when it is missing) |
 | No Telegram/Discord message | Check the `NOTIFY: Telegram=... \| Discord=...` verdict line in the **Publish summary and keep the session alive** step log. Secrets are snapshotted at run start — if you added them after starting, start a NEW run |
 | Cannot connect from your device | Your device must be signed in to the **same tailnet**; check the Tailscale client status before blaming the session |
@@ -125,6 +133,10 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ---
 
 ## 📜 Changelog
+
+### v8.3
+- **Tailscale OAuth instead of auth keys:** the session now joins your tailnet as a tagged ephemeral node through a Tailscale OAuth client (`TAILSCALE_OAUTH_CLIENT_ID` + `TAILSCALE_OAUTH_CLIENT_SECRET`) — OAuth clients never expire, which permanently removes the "auth key expired" failure mode. The node tag (`tag:lazyrdp`) must exist in the tailnet's Access Controls, and the self-repairing watchdog re-joins with the same OAuth mechanism.
+- **Cleaner logon:** Server Manager (and the legacy initial-configuration window) no longer auto-open at logon, at every debloat level.
 
 ### v8.2
 - **Debloat levels:** new `debloat_level` input — `light` (performance tuning only), `standard` (the previous fixed behavior, still the default) and `deep` (aggressive removals vetted for a short-lived RDP session: extra AppX packages, extra services, Windows Update held for the session, Compatibility Appraiser disabled). The Summary reports the applied level with package/service counts, and session-critical components are never touched at any level.

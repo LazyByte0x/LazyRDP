@@ -4,13 +4,18 @@ Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -Force
 
 Write-Step 'Pre-flight validation'
 
-# 1. The Tailscale key must exist. Failing here is cheap; failing after the app
-#    installs would waste ten minutes of runner time.
-if ([string]::IsNullOrWhiteSpace($env:TAILSCALE_AUTH_KEY)) {
-    Write-Host '::error::TAILSCALE_AUTH_KEY secret is not set. Add it under Settings > Secrets and variables > Actions.' -ForegroundColor Red
+# 1. The Tailscale OAuth client must exist. Unlike a stored auth key it never
+#    expires, so this is configured once; each session joins as a tagged,
+#    ephemeral node. Failing here is cheap; failing after the app installs
+#    would waste ten minutes of runner time.
+if ([string]::IsNullOrWhiteSpace($env:TAILSCALE_OAUTH_CLIENT_ID) -or [string]::IsNullOrWhiteSpace($env:TAILSCALE_OAUTH_CLIENT_SECRET)) {
+    Write-Host '::error::TAILSCALE_OAUTH_CLIENT_ID / TAILSCALE_OAUTH_CLIENT_SECRET secrets are not set. Create a Tailscale OAuth client with the writable Auth Keys scope and the tag:lazyrdp tag (see the README Quick Start), then add both values under Settings > Secrets and variables > Actions.' -ForegroundColor Red
     exit 1
 }
-Write-Ok 'TAILSCALE_AUTH_KEY secret is present'
+if (-not $env:TAILSCALE_OAUTH_CLIENT_SECRET.StartsWith('tskey-client-')) {
+    Write-Warn 'TAILSCALE_OAUTH_CLIENT_SECRET does not start with tskey-client- - double-check it is the OAuth client secret, not an auth key.'
+}
+Write-Ok 'Tailscale OAuth client secrets are present'
 
 # 1b. Credential reachability. The Summary always masks passwords, so a
 #    session with no notification channels and no RDP_PASSWORD has no way to

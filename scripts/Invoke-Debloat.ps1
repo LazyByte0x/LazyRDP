@@ -107,6 +107,12 @@ Set-RegistryValue -Path 'HKCU:\Control Panel\Mouse' -Name 'MouseThreshold1' -Val
 Set-RegistryValue -Path 'HKCU:\Control Panel\Mouse' -Name 'MouseThreshold2' -Value '0'
 Write-Ok 'Mouse acceleration disabled'
 
+# Server desktop polish (all levels): stop Server Manager and the legacy
+# initial-configuration window from auto-opening at every logon.
+Set-RegistryValue -Path 'HKLM:\SOFTWARE\Microsoft\ServerManager' -Name 'DoNotOpenServerManagerAtLogon' -Value 1 -Type DWord
+Set-RegistryValue -Path 'HKLM:\SOFTWARE\Microsoft\ServerManager' -Name 'DoNotOpenInitialConfigurationTasksAtLogon' -Value 1 -Type DWord
+Write-Ok 'Server Manager will not open at logon'
+
 Add-GithubEnv -Name 'DEBLOAT_LEVEL_APPLIED' -Value $level
 Add-GithubEnv -Name 'DEBLOAT_PACKAGES_REMOVED' -Value "$packagesRemoved"
 Add-GithubEnv -Name 'DEBLOAT_SERVICES_DISABLED' -Value "$servicesDisabled"
