@@ -77,14 +77,14 @@ $credsSection = @"
 "@
 
 if ($delivered.Count -eq 0 -and $env:PASSWORD_MODE -ne 'user') {
-    Write-Host '::notice::No private channel delivered - the Summary stays masked; the passwords are only in the raw env block of this step log.'
+    Write-Host '::notice::No private channel delivered - the Summary stays masked and the passwords are not recoverable from this run. Configure notification secrets and start a new run.'
 }
 $credsHint = if ($delivered.Count -gt 0) {
     "📬 **Passwords were sent to your private channel(s): $($delivered -join ', ')**"
 } elseif ($env:PASSWORD_MODE -eq 'user') {
     "🔒 **Passwords:** the value of your ``RDP_PASSWORD`` secret (you set it yourself)"
 } else {
-    "⚠️ **Passwords:** no channel delivered this run - they are only visible in the raw log of this step (env block). Configure notification secrets or set ``RDP_PASSWORD``."
+    "⚠️ **Passwords:** no channel delivered this run and they are never displayed here - configure ``TELEGRAM_BOT_TOKEN`` + ``TELEGRAM_CHAT_ID`` or ``DISCORD_WEBHOOK_URL`` and start a new run to receive them."
 }
 
 $summary = @"
