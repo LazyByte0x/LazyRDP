@@ -80,11 +80,6 @@ jobs:
         shell: pwsh
         run: ./scripts/Invoke-Debloat.ps1
 
-      - name: '🎧 Session quality (audio + graphics)'
-        timeout-minutes: 5
-        shell: pwsh
-        run: ./scripts/Enable-SessionQuality.ps1
-
       - name: '💾 Storage boost'
         if: ${{ inputs.storage_boost == 'yes' }}
         timeout-minutes: 10
