@@ -10,10 +10,9 @@ $sessionHours = 5.9
 if (-not [double]::TryParse($env:SESSION_HOURS_EFFECTIVE, [ref]$sessionHours) -or $sessionHours -le 0) {
     $sessionHours = 5.9
 }
-# Anchor the deadline to UTC. Set-TimeZone (personalization step) may have
-# moved the machine's local clock before this step runs, so Get-Date would
-# yield wall-clock values that are mislabeled if printed as UTC. UtcNow is
-# timezone-proof for both the elapsed math and the displayed end time.
+# Anchor the deadline to UTC. Timezone redirection can move the machine's
+# local clock the moment a device connects via RDP, so Get-Date wall-clock
+# values would be unstable for math or labeling. UtcNow is timezone-proof.
 $deadlineUtc = [DateTimeOffset]::UtcNow.AddHours($sessionHours)
 $endsAt = $deadlineUtc.ToString('yyyy-MM-dd HH:mm') + ' UTC'
 $currentIp = $env:TAILSCALE_IP
