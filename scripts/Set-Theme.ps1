@@ -15,16 +15,6 @@ if ($env:THEME -eq 'dark') {
     Write-Ok 'Light mode applied'
 }
 
-# Optional session timezone, validated during pre-flight (empty keeps UTC).
-if (-not [string]::IsNullOrWhiteSpace($env:TIMEZONE_VALID)) {
-    try {
-        Set-TimeZone -Id $env:TIMEZONE_VALID -ErrorAction Stop
-        Write-Ok "Timezone set to $($env:TIMEZONE_VALID)"
-    } catch {
-        Write-Warn "Could not set the timezone: $($_.Exception.Message)"
-    }
-}
-
 # The wallpaper was downloaded and content-type-validated during pre-flight;
 # this step only wires it into the desktop.
 $wallpaperFile = $env:WALLPAPER_FILE

@@ -15,7 +15,11 @@ try {
 # Network Level Authentication is the platform default; make it explicit so the
 # listener never regresses to pre-authentication access.
 Set-RegistryValue -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name 'UserAuthentication' -Value 1 -Type DWord
-Write-Ok 'RDP listener enabled with Network Level Authentication'
+# Timezone redirection: the connecting RDP client (mstsc) sends its own time
+# zone at connect time, so the session clock automatically matches the user's
+# device - no manual timezone configuration needed, for any country.
+Set-RegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name 'fEnableTimeZoneRedirection' -Value 1 -Type DWord
+Write-Ok 'RDP listener enabled with Network Level Authentication and timezone redirection'
 
 function Set-LocalUserPassword {
     param(

@@ -80,7 +80,6 @@ Go to **Actions > LazyRDP > Run workflow** and pick your options:
 | Wallpaper URL | any direct image URL | Optional; validated before setup starts, ignored if it is not a reachable image |
 | Session hours | `1` – `6` | How long the session stays up (shuts down gracefully before the platform cap) |
 | Storage boost | `no` / `yes` | Removes unused preinstalled toolchains (Android SDK, Docker images, Go, Haskell, CodeQL, caches) and frees tens of GB |
-| Timezone | any Windows time zone Id | Optional; e.g. `Egypt Standard Time`. Empty keeps UTC. Invalid values warn and keep UTC |
 
 If a second run starts while a session is live, the new run replaces the old one — **the previous session is cancelled immediately**.
 
@@ -99,7 +98,7 @@ If a second run starts while a session is live, the new run replaces the old one
 - **Secure provisioning** — enables RDP with Network Level Authentication and creates two accounts whose passwords are cryptographically random per run. Registry writes go through a hardened ladder (existing-value write → create → `reg.exe` → take key ownership) borrowed from XyRDP's documented findings about TrustedInstaller-owned keys.
 - **Debloat and tuning** — removes consumer bloatware, disables telemetry services, activates the Ultimate Performance power plan, and disables mouse acceleration.
 - **Storage boost (optional)** — frees tens of gigabytes by removing SDKs and toolchains a desktop session never uses, reporting the real freed number.
-- **Personalization** — applies the chosen theme, validated wallpaper, and optional timezone. The wallpaper is verified twice (response headers **and** file signature), and a branded default bundled in the repo is applied whenever a custom URL fails (hotlink protection, bot checks, wrong content-type) — with the exact failure reason logged and shown in the Summary.
+- **Personalization** — applies the chosen theme and validated wallpaper. Timezone redirection is enabled, so the session clock automatically adopts the **connecting device's** time zone at RDP connect time (no manual configuration, any country). The wallpaper is verified twice (response headers **and** file signature), and a branded default bundled in the repo is applied whenever a custom URL fails (hotlink protection, bot checks, wrong content-type) — with the exact failure reason logged and shown in the Summary.
 - **Application bundles** — installs Chrome directly from Google's signed enterprise MSI (winget's community manifest repeatedly trailed Google's rolling installer), and the remaining packages in parallel via winget with a source-refresh retry; a failed package never blocks the session, and its winget log is printed into the run log.
 - **Private credential delivery** — the moment the session is ready, Telegram and/or Discord receive the full connection details **including passwords**. The Summary **never** displays passwords in any mode — they live in your private channels (or in your `RDP_PASSWORD` secret); pre-flight warns when no delivery path exists.
 - **Self-repairing keep-alive** — every 5 minutes the session verifies the Tailscale service, the actual tailnet connection, and the RDP listener. If the node drops off the tailnet, it re-joins automatically (up to 3 attempts); if the IP changes, the Summary gains an "IP UPDATED" section and your channels receive the new address.
@@ -130,6 +129,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ## 📜 Changelog
 
 ### v8.1
+- **Automatic timezone:** the manual `timezone` input was removed — RDP timezone redirection (`fEnableTimeZoneRedirection`) is enabled instead, so the session clock automatically adopts the **connecting device's** time zone when you connect via mstsc. The Summary shows UTC only.
 - **Passwords are ALWAYS masked in the Summary** — in every mode, regardless of delivery outcome (owner directive). Passwords travel exclusively to the configured Telegram/Discord channels; with `RDP_PASSWORD` set you own the password yourself, and pre-flight warns up-front when no delivery path exists for generated passwords.
 - **Wallpaper robustness:** images are now verified by file signature (magic bytes) when headers lie; a branded default wallpaper bundled in the repo (`assets/wallpaper.jpg`) is applied whenever the custom URL fails, and the exact failure reason (status/content-type) is logged and shown in the Summary.
 - **Unambiguous delivery verdicts:** every channel prints a `NOTIFY: Telegram=DELIVERED|FAILED|NOT_CONFIGURED` line, the delivery state is published to a temp file the Summary step re-reads (no reliance on output capture), and the Summary clarifies that secrets are snapshotted at run start — adding secrets after starting a run requires a new run.

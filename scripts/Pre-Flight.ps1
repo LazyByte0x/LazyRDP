@@ -73,19 +73,4 @@ if ([string]::IsNullOrWhiteSpace($env:WALLPAPER_URL)) {
 Add-GithubEnv -Name 'WALLPAPER_FILE' -Value $wallpaperFile
 Add-GithubEnv -Name 'WALLPAPER_NOTE' -Value $wallpaperNote
 
-# 5. Optional timezone - a cosmetic preference, so an invalid value warns and
-#    keeps UTC instead of failing the session.
-$timeZone = ''
-if (-not [string]::IsNullOrWhiteSpace($env:TIMEZONE_INPUT)) {
-    $requested = $env:TIMEZONE_INPUT.Trim()
-    $known = Get-TimeZone -ListAvailable | Where-Object { $_.Id -eq $requested } | Select-Object -First 1
-    if ($null -ne $known) {
-        $timeZone = $requested
-        Write-Ok "Timezone: $requested"
-    } else {
-        Write-Warn "Timezone '$requested' is not a valid Windows time zone id - the session keeps UTC."
-    }
-}
-Add-GithubEnv -Name 'TIMEZONE_VALID' -Value $timeZone
-
 exit 0

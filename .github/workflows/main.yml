@@ -37,10 +37,6 @@ on:
           - 'no'
           - 'yes'
         default: 'no'
-      timezone:
-        description: '(Optional) Windows time zone Id for the session, e.g. Egypt Standard Time. Empty keeps UTC.'
-        required: false
-        default: ''
 
 permissions:
   contents: read
@@ -70,7 +66,6 @@ jobs:
           THEME: ${{ inputs.theme }}
           WALLPAPER_URL: ${{ inputs.wallpaper_url }}
           SESSION_HOURS: ${{ inputs.session_hours }}
-          TIMEZONE_INPUT: ${{ inputs.timezone }}
         run: ./scripts/Pre-Flight.ps1
 
       - name: '🔐 Configure RDP and session users'

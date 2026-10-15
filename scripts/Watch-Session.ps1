@@ -16,7 +16,6 @@ if (-not [double]::TryParse($env:SESSION_HOURS_EFFECTIVE, [ref]$sessionHours) -o
 # timezone-proof for both the elapsed math and the displayed end time.
 $deadlineUtc = [DateTimeOffset]::UtcNow.AddHours($sessionHours)
 $endsAt = $deadlineUtc.ToString('yyyy-MM-dd HH:mm') + ' UTC'
-$endsAtLocal = $deadlineUtc.LocalDateTime.ToString('yyyy-MM-dd HH:mm')
 $currentIp = $env:TAILSCALE_IP
 $notifyScript = Join-Path $PSScriptRoot 'Notify-Session.ps1'
 
@@ -65,8 +64,6 @@ if ($env:APP_BUNDLE -eq 'clean') {
 } else {
     $appsStatus = "Bundle '$($env:APP_BUNDLE)' installed, but these failed: $failedApps. Check the install step log."
 }
-$timeZoneNote = ''
-if (-not [string]::IsNullOrWhiteSpace($env:TIMEZONE_VALID)) { $timeZoneNote = "`n- **Timezone:** $($env:TIMEZONE_VALID)" }
 $storageNote = ''
 if (-not [string]::IsNullOrWhiteSpace($env:STORAGE_BOOST_FREED_GB)) { $storageNote = "`n- **Storage boost:** freed $($env:STORAGE_BOOST_FREED_GB) GB" }
 
@@ -103,10 +100,10 @@ $credsSection
 $credsHint
 
 ### Session details
-- **Theme:** $($env:THEME)$timeZoneNote
+- **Theme:** $($env:THEME)
 - **Wallpaper:** $(if (-not [string]::IsNullOrWhiteSpace($env:WALLPAPER_NOTE)) { $env:WALLPAPER_NOTE } else { 'system default' })
 - **Applications:** $appsStatus$storageNote
-- **Ends at:** $endsAt (session-local: $endsAtLocal) - the environment is destroyed shortly after; store nothing here.
+- **Ends at:** $endsAt - the environment is destroyed shortly after; store nothing here. (The session clock automatically follows the connecting device's time zone once you connect via RDP.)
 
 > ⚠️ **Concurrency warning:** starting a NEW run of this workflow cancels this
 > session immediately. Cancel from the Actions tab when you are done.
