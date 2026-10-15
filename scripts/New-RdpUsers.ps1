@@ -56,13 +56,6 @@ function Add-LocalGroupMemberSafe {
 # non-interactive shell. The cmdlets have no such limit, so the 20-character
 # passwords work as designed.
 #
-# The passwords are deliberately NOT registered with ::add-mask::: masking
-# redacts the value everywhere it would be printed, including the job Summary
-# page, which is the intended delivery channel for these credentials. The
-# exposure model (visible to anyone who can view this repository's Actions
-# runs, random per run, destroyed with the session) is documented in the README
-# and in the Summary privacy note.
-
 # Credential mode. If the user set the RDP_PASSWORD secret, both accounts use
 # it - registered secrets are already redacted by GitHub in every log. Otherwise
 # random passwords are generated per account, registered with ::add-mask:: (the
@@ -77,7 +70,7 @@ if (-not [string]::IsNullOrWhiteSpace($env:RDP_PASSWORD)) {
     $adminPassword = $env:RDP_PASSWORD
     $sessionPassword = $env:RDP_PASSWORD
     Add-GithubEnv -Name 'PASSWORD_MODE' -Value 'user'
-    Write-Ok 'Using the user-provided password from the RDP_PASSWORD secret (never displayed or transmitted)'
+    Write-Ok 'Using the user-provided password from the RDP_PASSWORD secret (never displayed in the Summary)'
 } else {
     $adminPassword = New-RandomPassword
     $sessionPassword = New-RandomPassword

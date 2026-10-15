@@ -1,8 +1,9 @@
 ﻿# Sends a session message to the user's private channels (Telegram and/or
 # Discord). Configured-but-failed channels warn; unconfigured channels are
 # skipped silently. Outputs the names of the channels that actually delivered;
-# Watch-Session uses that list to decide whether the Summary may display the
-# credentials (fallback when nothing was delivered).
+# Watch-Session surfaces that list in the Summary, while the passwords
+# themselves are never displayed there (masking is unconditional per the
+# owner's standing directive).
 param(
     [Parameter(Mandatory)][string]$Message
 )

@@ -8,7 +8,7 @@
     <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
 </p>
 
-A fully automated, customizable remote desktop session deployed from GitHub Actions and reachable only through your own private Tailscale network. Credentials are delivered **privately** to your Telegram or Discord the moment the session is ready. Sessions are ephemeral: the machine exists for the lifetime of the workflow run and is destroyed afterwards.
+A fully automated, customizable remote desktop session deployed from GitHub Actions and reachable only through your own private Tailscale network. Credentials are delivered **privately** to your Telegram or Discord (when configured) the moment the session is ready. Sessions are ephemeral: the machine exists for the lifetime of the workflow run and is destroyed afterwards.
 
 ---
 
@@ -27,8 +27,8 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 | Hardware | 4 vCPUs, 16 GB RAM, ~14 GB free disk (more with `storage_boost`) |
 | Session lifetime | 1–6 hours, your choice (default 6) |
 | Access | RDP + SSH terminal over Tailscale only — no public IPs, no open ports |
-| Accounts | `runneradmin` (main, personalized) and `lazyuser` (clean spare), **randomly generated passwords per run** |
-| Credentials | **Never displayed in the Summary** — always sent to your Telegram and/or Discord. Set `RDP_PASSWORD` to own the password yourself. |
+| Accounts | `runneradmin` (main, personalized) and `lazyuser` (clean spare), **random passwords per run** (or your own `RDP_PASSWORD`) |
+| Credentials | **Never displayed in the Summary** — sent to your Telegram and/or Discord when configured. Set `RDP_PASSWORD` to own the password yourself. |
 
 ---
 
@@ -46,7 +46,7 @@ Click **Fork**, then work from your fork — not from this upstream copy.
 
 ### 3. Set up credential delivery (optional but recommended)
 
-Without these secrets the workflow still works — credentials simply fall back to the run Summary.
+Without these secrets the workflow still works, but **generated passwords are unreachable** — the Summary and the logs always mask them (pre-flight warns before any setup time is spent). For a password you already know, set `RDP_PASSWORD` instead.
 
 **Telegram:**
 1. Message [@BotFather](https://t.me/BotFather) → `/newbot` → follow the prompts → copy the **bot token** (`123456:ABC-...`).
@@ -75,7 +75,7 @@ Go to **Actions > LazyRDP > Run workflow** and pick your options:
 |-------|---------|---------|
 | Theme | `dark` / `light` | Desktop color mode |
 | Application bundle | `all` / `streaming` / `minimal` / `clean` | `all`: Chrome, Steam, OBS, Google Drive, Rainmeter + Mond · `streaming`: Chrome, OBS, Rainmeter + Mond · `minimal`: Chrome · `clean`: nothing |
-| Wallpaper URL | any direct image URL | Optional; validated before setup starts, ignored if it is not a reachable image |
+| Wallpaper URL | any direct image URL | Optional; validated before setup starts — if it is not a reachable image, the bundled default wallpaper is applied instead |
 | Session hours | `1` – `6` | How long the session stays up (shuts down gracefully before the platform cap) |
 | Storage boost | `no` / `yes` | Removes unused preinstalled toolchains (Android SDK, Docker images, Go, Haskell, CodeQL, caches) and frees tens of GB |
 
@@ -83,8 +83,8 @@ If a second run starts while a session is live, the new run replaces the old one
 
 ### 6. Connect
 
-1. Wait for the run — when the session is ready, **your Telegram/Discord receives the IP, both accounts, and passwords**. (If you skipped step 3, no message is sent — passwords are then only recoverable from the raw log of the "Publish summary" step, env block.)
-2. The run **Summary** always shows the address, the end time, and step-by-step connection instructions — passwords are never displayed there; they arrive via your channels.
+1. Wait for the run — when the session is ready, **your Telegram/Discord receives the IP, both accounts, and passwords**. (If you skipped steps 3–4 entirely, no message is sent and the generated passwords are **not recoverable from the run at all** — the Summary and the logs mask them alike; pre-flight warns about this before setup starts.)
+2. The run **Summary** always shows the address, the end time, and step-by-step connection instructions — passwords are never displayed there; they reach you through your channels (or are the `RDP_PASSWORD` you chose).
 3. Install the Tailscale client on your device, sign in to the same tailnet, then connect with any RDP client to the `100.x.x.x` address.
 4. **Sign in as `runneradmin`** — that account carries all personalization (theme, wallpaper, mouse tuning, OBS profile).
 5. *(Optional)* Terminal access without a desktop: `ssh runneradmin@<ip>` — port 22, same credentials, PowerShell 7 shell.
@@ -113,11 +113,10 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 |---------|----------------------|
 | Run fails at pre-flight: `TAILSCALE_AUTH_KEY secret is not set` | Add the secret as described in step 4 |
 | Run fails at the Tailscale step | The auth key expired, is single-use, or was already consumed — generate a new Ephemeral + Reusable key |
-| Wrong credentials | Credentials differ per run and the Summary always masks them — read them from the notification message of **that specific run**; if no channel was configured for it, search the raw log of the "Publish summary" step for `RDP_ADMIN_PASS` (env block). For future runs, set `RDP_PASSWORD` or the notification secrets |
-| No Telegram/Discord message | Check the `NOTIFY: Telegram=... \| Discord=...` verdict line in the "Publish summary" step log. Secrets are snapshotted at run start — if you added them after starting, start a NEW run |
+| Wrong credentials | Credentials differ per run and are always masked in the Summary **and the logs** — read them from the notification message of **that specific run**, or use your `RDP_PASSWORD` if you set one. If no channel delivered, the generated passwords are unrecoverable: start a new run with delivery configured (pre-flight warns when it is missing) |
+| No Telegram/Discord message | Check the `NOTIFY: Telegram=... \| Discord=...` verdict line in the **Publish summary and keep the session alive** step log. Secrets are snapshotted at run start — if you added them after starting, start a NEW run |
 | Cannot connect from your device | Your device must be signed in to the **same tailnet**; check the Tailscale client status before blaming the session |
 | IP stopped working mid-session | The watchdog repaired a drop and the IP changed — the Summary has an "IP UPDATED" section and your channels got the new address |
-| Wrong credentials | Credentials differ per run; read them from the notification message of **that specific run** — if no channel was configured for it, search the raw log of the "Publish summary" step for `RDP_ADMIN_PASS` (env block) |
 | An application failed to install | The session still comes up; the last lines of the winget log are printed in the install step log — review them there, then rerun |
 | Session ended earlier than expected | The `session_hours` input elapsed, or a newer run replaced this one; the Summary shows the planned end time |
 | Job killed at exactly 6 hours | The platform cap — choose a lower `session_hours` value for graceful shutdown |
