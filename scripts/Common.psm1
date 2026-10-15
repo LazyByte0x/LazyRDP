@@ -132,6 +132,30 @@ function Test-ImageResponse {
     return ($contentType -match '^image/')
 }
 
+function Test-ImageFile {
+    # Authoritative image check by file signature (magic bytes). Some CDNs
+    # serve real images with a wrong or missing Content-Type, and hotlink
+    # protection returns HTML - headers alone are not trustworthy.
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try {
+            $count = [Math]::Min(12, $stream.Length)
+            if ($count -lt 3) { return $false }
+            $b = [byte[]]::new($count)
+            [void]$stream.Read($b, 0, $count)
+        } finally { $stream.Dispose() }
+        if ($b[0] -eq 0xFF -and $b[1] -eq 0xD8 -and $b[2] -eq 0xFF) { return $true }                                     # JPEG
+        if ($b[0] -eq 0x89 -and $b[1] -eq 0x50 -and $b[2] -eq 0x4E -and $b[3] -eq 0x47) { return $true }                 # PNG
+        if ($b[0] -eq 0x47 -and $b[1] -eq 0x49 -and $b[2] -eq 0x46) { return $true }                                     # GIF
+        if ($b[0] -eq 0x42 -and $b[1] -eq 0x4D) { return $true }                                                         # BMP
+        if ($count -ge 12 -and $b[0] -eq 0x52 -and $b[1] -eq 0x49 -and $b[2] -eq 0x46 -and $b[3] -eq 0x46 -and `
+            $b[8] -eq 0x57 -and $b[9] -eq 0x45 -and $b[10] -eq 0x42 -and $b[11] -eq 0x50) { return $true }               # WEBP (RIFF....WEBP)
+        return $false
+    } catch { return $false }
+}
+
 Export-ModuleMember -Function @(
     'Write-Step',
     'Write-Ok',
@@ -141,5 +165,6 @@ Export-ModuleMember -Function @(
     'New-RandomPassword',
     'ConvertTo-SecurePassword',
     'Invoke-DownloadWithRetry',
-    'Test-ImageResponse'
+    'Test-ImageResponse',
+    'Test-ImageFile'
 )

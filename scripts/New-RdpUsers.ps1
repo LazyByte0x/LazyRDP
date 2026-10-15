@@ -54,15 +54,35 @@ function Add-LocalGroupMemberSafe {
 # runs, random per run, destroyed with the session) is documented in the README
 # and in the Summary privacy note.
 
+# Credential mode. If the user set the RDP_PASSWORD secret, both accounts use
+# it and nothing displays or transmits it anywhere (XyRDP-style masking - the
+# user knows their own password). Otherwise a random password is generated per
+# account and delivered through the private channels, with the Summary as the
+# last-resort fallback. In both modes the values are deliberately NOT masked
+# with ::add-mask:: - masking also redacts the job Summary, which must stay
+# able to show generated credentials when nothing was delivered.
+if (-not [string]::IsNullOrWhiteSpace($env:RDP_PASSWORD)) {
+    if ($env:RDP_PASSWORD.Length -lt 8) {
+        Write-Warn 'RDP_PASSWORD is shorter than 8 characters - consider a stronger one.'
+    }
+    $adminPassword = $env:RDP_PASSWORD
+    $sessionPassword = $env:RDP_PASSWORD
+    Add-GithubEnv -Name 'PASSWORD_MODE' -Value 'user'
+    Write-Ok 'Using the user-provided password from the RDP_PASSWORD secret (never displayed or transmitted)'
+} else {
+    $adminPassword = New-RandomPassword
+    $sessionPassword = New-RandomPassword
+    Add-GithubEnv -Name 'PASSWORD_MODE' -Value 'generated'
+    Write-Ok 'Generated random per-run passwords'
+}
+
 # Rotate the built-in runner admin password for this run only.
-$adminPassword = New-RandomPassword
 $adminPasswordSecure = ConvertTo-SecurePassword $adminPassword
 Set-LocalUserPassword -UserName 'runneradmin' -Password $adminPasswordSecure
 Add-GithubEnv -Name 'RDP_ADMIN_PASS' -Value $adminPassword
 Write-Ok 'runneradmin password rotated'
 
 # Dedicated session account with admin and RDP group membership.
-$sessionPassword = New-RandomPassword
 $sessionPasswordSecure = ConvertTo-SecurePassword $sessionPassword
 Set-LocalUserPassword -UserName 'lazyuser' -Password $sessionPasswordSecure
 Add-LocalGroupMemberSafe -GroupName 'Administrators' -MemberName 'lazyuser'

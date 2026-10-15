@@ -17,14 +17,18 @@ $notifyScript = Join-Path $PSScriptRoot 'Notify-Session.ps1'
 
 function Get-SessionMessage {
     param([string]$Ip)
+    $passwordLines = if ($env:PASSWORD_MODE -eq 'user') {
+        'Password: the value of your RDP_PASSWORD secret (never transmitted)'
+    } else {
+        "Password (runneradmin): $($env:RDP_ADMIN_PASS)`nPassword (lazyuser): $($env:RDP_SESSION_PASS)"
+    }
     return @"
 🟢 LazyRDP session is ready
 
 Host (Tailscale IP): $Ip
 Username 1: runneradmin
-Password 1: $($env:RDP_ADMIN_PASS)
 Username 2: lazyuser
-Password 2: $($env:RDP_SESSION_PASS)
+$passwordLines
 
 Ends: $endsAt (UTC). Environment is destroyed afterwards - store nothing in the session.
 Connect: sign in to Tailscale, then open any RDP client (Windows: mstsc) to the host above.
@@ -32,9 +36,9 @@ Connect: sign in to Tailscale, then open any RDP client (Windows: mstsc) to the 
 }
 
 # --- Private credential delivery ------------------------------------------------
-# If at least one channel delivered, the Summary hides the passwords (private
-# delivery wins). If nothing was delivered - secrets missing or all sends
-# failed - the Summary falls back to showing them so they can never be lost.
+# Three display modes: user password (always masked - the user knows it, XyRDP
+# style), generated + delivered (hidden, private channel won), generated +
+# nothing delivered (fallback: the Summary is the only way to get them).
 $delivered = @(& $notifyScript -Message (Get-SessionMessage -Ip $currentIp))
 
 # --- Session summary ------------------------------------------------------------
@@ -51,7 +55,19 @@ if (-not [string]::IsNullOrWhiteSpace($env:TIMEZONE_VALID)) { $timeZoneNote = "`
 $storageNote = ''
 if (-not [string]::IsNullOrWhiteSpace($env:STORAGE_BOOST_FREED_GB)) { $storageNote = "`n- **Storage boost:** freed $($env:STORAGE_BOOST_FREED_GB) GB" }
 
-if ($delivered.Count -gt 0) {
+if ($env:PASSWORD_MODE -eq 'user') {
+    $credsSection = @"
+| Property | Value |
+|----------|-------|
+| **Address (Tailscale IP)** | ``$currentIp`` |
+| **Username 1** | ``runneradmin`` |
+| **Username 2** | ``lazyuser`` |
+| **Passwords** | ``••••••••`` - your ``RDP_PASSWORD`` secret |
+
+🔒 **Masked mode:** the session uses your own ``RDP_PASSWORD`` secret, so no
+password is displayed here or sent through any channel.
+"@
+} elseif ($delivered.Count -gt 0) {
     $credsSection = @"
 | Property | Value |
 |----------|-------|
@@ -90,6 +106,7 @@ $summary = @"
 $credsSection
 ### Session details
 - **Theme:** $($env:THEME)$timeZoneNote
+- **Wallpaper:** $(if (-not [string]::IsNullOrWhiteSpace($env:WALLPAPER_NOTE)) { $env:WALLPAPER_NOTE } else { 'system default' })
 - **Applications:** $appsStatus$storageNote
 - **Ends at:** $endsAt - the environment is destroyed shortly after; store nothing here.
 

@@ -72,6 +72,8 @@ jobs:
       - name: '🔐 Configure RDP and session users'
         timeout-minutes: 5
         shell: pwsh
+        env:
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
         run: ./scripts/New-RdpUsers.ps1
 
       - name: '🧹 Debloat and optimize Windows'

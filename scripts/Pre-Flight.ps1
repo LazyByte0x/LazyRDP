@@ -30,23 +30,37 @@ if ($sessionHours -gt 5.9) { $sessionHours = 5.9 }
 Add-GithubEnv -Name 'SESSION_HOURS_EFFECTIVE' -Value "$sessionHours"
 Write-Ok "Session lifetime: $sessionHours hours"
 
-# 4. Validate the wallpaper early: download once to its final location and keep
-#    it only if the response is really an image.
+# 4. Wallpaper: use the custom URL when it really serves an image (verified by
+#    headers OR file signature); otherwise fall back to the wallpaper bundled
+#    in the repo so the desktop is never bare. The verdict reason is logged.
+$defaultWallpaper = Join-Path $env:GITHUB_WORKSPACE 'assets\wallpaper.jpg'
+$wallpaperFile = ''
+$wallpaperNote = ''
 if ([string]::IsNullOrWhiteSpace($env:WALLPAPER_URL)) {
-    Add-GithubEnv -Name 'WALLPAPER_FILE' -Value ''
-    Write-Warn 'No wallpaper URL provided - the default desktop background will be kept.'
+    if (Test-Path $defaultWallpaper) { $wallpaperFile = $defaultWallpaper; $wallpaperNote = 'bundled default (no custom URL provided)' }
+    Write-Warn 'No wallpaper URL provided - the bundled default will be applied.'
 } else {
-    $wallpaperFile = Join-Path $env:PUBLIC 'wallpaper.jpg'
-    $response = Invoke-DownloadWithRetry -Uri $env:WALLPAPER_URL -OutFile $wallpaperFile -Attempts 2
+    $download = Join-Path $env:PUBLIC 'wallpaper.jpg'
+    $response = Invoke-DownloadWithRetry -Uri $env:WALLPAPER_URL -OutFile $download -Attempts 2
+    $contentType = ''
+    if ($null -ne $response -and $response.Headers['Content-Type']) { $contentType = ($response.Headers['Content-Type'] -join ';') }
     if ($null -ne $response -and (Test-ImageResponse $response)) {
-        Add-GithubEnv -Name 'WALLPAPER_FILE' -Value $wallpaperFile
+        $wallpaperFile = $download
+        $wallpaperNote = 'custom URL'
         Write-Ok 'Wallpaper URL is reachable and serves an image'
+    } elseif ($null -ne $response -and (Test-ImageFile $download)) {
+        $wallpaperFile = $download
+        $wallpaperNote = "custom URL (headers said '$contentType', verified by file signature)"
+        Write-Ok "Wallpaper verified by file signature (content-type was '$contentType')"
     } else {
-        if (Test-Path $wallpaperFile) { Remove-Item -Path $wallpaperFile -Force }
-        Add-GithubEnv -Name 'WALLPAPER_FILE' -Value ''
-        Write-Warn 'Wallpaper URL is unreachable or does not serve an image - the default background will be kept.'
+        $reason = if ($null -ne $response) { "server responded with content-type '$contentType'" } else { 'download failed after retries' }
+        if (Test-Path $download) { Remove-Item -Path $download -Force }
+        if (Test-Path $defaultWallpaper) { $wallpaperFile = $defaultWallpaper; $wallpaperNote = "bundled default - your URL failed ($reason)" }
+        Write-Warn "Wallpaper URL rejected: $reason - the bundled default will be applied."
     }
 }
+Add-GithubEnv -Name 'WALLPAPER_FILE' -Value $wallpaperFile
+Add-GithubEnv -Name 'WALLPAPER_NOTE' -Value $wallpaperNote
 
 # 5. Optional timezone - a cosmetic preference, so an invalid value warns and
 #    keeps UTC instead of failing the session.

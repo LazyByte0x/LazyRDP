@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-    <img src="https://img.shields.io/badge/Version-v8.0-blue?style=for-the-badge">
+    <img src="https://img.shields.io/badge/Version-v8.1-blue?style=for-the-badge">
     <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows">
     <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
 </p>
@@ -30,7 +30,7 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 | Session lifetime | 1–6 hours, your choice (default 6) |
 | Access | RDP over Tailscale only — no public IPs, no open ports |
 | Accounts | `runneradmin` (main, personalized) and `lazyuser` (clean spare), **randomly generated passwords per run** |
-| Credentials | Delivered to your **Telegram and/or Discord**; shown in the Summary only as a fallback |
+| Credentials | Delivered to your **Telegram and/or Discord**; shown in the Summary only as a fallback. Set `RDP_PASSWORD` to use your own password and mask everything. |
 
 ---
 
@@ -64,6 +64,7 @@ In your fork: **Settings > Secrets and variables > Actions > New repository secr
 | Secret | Required | Purpose |
 |--------|----------|---------|
 | `TAILSCALE_AUTH_KEY` | ✅ | Network access (ephemeral + reusable key) |
+| `RDP_PASSWORD` | optional | **Use your own session password.** When set, no password is ever displayed in the Summary or sent through any channel (XyRDP-style masking). Applies to both accounts; 8+ characters recommended. |
 | `TELEGRAM_BOT_TOKEN` | optional | Telegram credential delivery |
 | `TELEGRAM_CHAT_ID` | optional | Telegram credential delivery |
 | `DISCORD_WEBHOOK_URL` | optional | Discord credential delivery |
@@ -98,7 +99,7 @@ If a second run starts while a session is live, the new run replaces the old one
 - **Secure provisioning** — enables RDP with Network Level Authentication and creates two accounts whose passwords are cryptographically random per run. Registry writes go through a hardened ladder (existing-value write → create → `reg.exe` → take key ownership) borrowed from XyRDP's documented findings about TrustedInstaller-owned keys.
 - **Debloat and tuning** — removes consumer bloatware, disables telemetry services, activates the Ultimate Performance power plan, and disables mouse acceleration.
 - **Storage boost (optional)** — frees tens of gigabytes by removing SDKs and toolchains a desktop session never uses, reporting the real freed number.
-- **Personalization** — applies the chosen theme, validated wallpaper, and optional timezone.
+- **Personalization** — applies the chosen theme, validated wallpaper, and optional timezone. The wallpaper is verified twice (response headers **and** file signature), and a branded default bundled in the repo is applied whenever a custom URL fails (hotlink protection, bot checks, wrong content-type) — with the exact failure reason logged and shown in the Summary.
 - **Application bundles** — installs Chrome directly from Google's signed enterprise MSI (winget's community manifest repeatedly trailed Google's rolling installer), and the remaining packages in parallel via winget with a source-refresh retry; a failed package never blocks the session, and its winget log is printed into the run log.
 - **Private credential delivery** — the moment the session is ready, Telegram and/or Discord receive the full connection details; the Summary hides passwords unless no channel delivered.
 - **Self-repairing keep-alive** — every 5 minutes the session verifies the Tailscale service, the actual tailnet connection, and the RDP listener. If the node drops off the tailnet, it re-joins automatically (up to 3 attempts); if the IP changes, the Summary gains an "IP UPDATED" section and your channels receive the new address.
@@ -126,6 +127,10 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ---
 
 ## 📜 Changelog
+
+### v8.1
+- **Masked password mode (XyRDP-style):** set the optional `RDP_PASSWORD` secret to use your own session password — no password is then displayed in the Summary or transmitted through any notification. Without it, per-run random passwords keep the deliver-then-fallback behavior.
+- **Wallpaper robustness:** images are now verified by file signature (magic bytes) when headers lie; a branded default wallpaper bundled in the repo (`assets/wallpaper.jpg`) is applied whenever the custom URL fails, and the exact failure reason (status/content-type) is logged and shown in the Summary.
 
 ### v8.0
 - **Private credential delivery:** Telegram and/or Discord receive the full connection details when the session is ready; the Summary hides passwords unless no channel delivered (fallback keeps them reachable). New optional secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DISCORD_WEBHOOK_URL`.
