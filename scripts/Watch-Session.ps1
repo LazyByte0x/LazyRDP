@@ -43,7 +43,8 @@ Terminal (SSH): ssh runneradmin@$Ip - same password, PowerShell 7 shell.
 # Passwords travel to the user's private channels only. The Summary never
 # displays them, in any mode, regardless of delivery outcome - per the owner's
 # standing directive. If no channel delivered and no RDP_PASSWORD is set, the
-# generated values are only recoverable from this step's raw log env block.
+# generated values are not recoverable from this run at all (they are masked
+# in logs too) - the pre-flight step warns about this before any setup runs.
 $delivered = @(& $notifyScript -Message (Get-SessionMessage -Ip $currentIp))
 # Prefer the file verdict Notify-Session published (robust across scopes);
 # fall back to the output capture if the file is missing.
