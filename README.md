@@ -1,23 +1,29 @@
-<p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=slice&color=gradient&height=250&section=header&text=LazyRDP&fontSize=70&fontAlignY=40" />
-</p>
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=slice&color=gradient&height=220&section=header&text=LazyRDP&fontSize=68&fontAlignY=38&desc=Ephemeral%20Windows%20desktops%20on%20GitHub%20Actions%20%2B%20Tailscale&descAlignY=57&descSize=17" width="100%" />
+</div>
 
-<p align="center">
-    <img src="https://img.shields.io/badge/Version-v8.3-blue?style=for-the-badge">
-    <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows">
-    <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge">
-</p>
+<div align="center">
 
-A fully automated, customizable remote desktop session deployed from GitHub Actions and reachable only through your own private Tailscale network. Credentials are delivered **privately** to your Telegram or Discord (when configured) the moment the session is ready. Sessions are ephemeral: the machine exists for the lifetime of the workflow run and is destroyed afterwards.
+![Version](https://img.shields.io/badge/Version-v8.3-blue?style=for-the-badge)
+![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows)
+![Tunnel](https://img.shields.io/badge/Tunnel-Tailscale-4B70CC?style=for-the-badge&logo=tailscale)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
+**A fully automated, customizable remote desktop session** deployed from GitHub Actions and reachable only through your own private Tailscale network. Credentials are delivered **privately** to your Telegram or Discord (when configured) the moment the session is ready. Sessions are ephemeral: the machine exists for the lifetime of the workflow run and is destroyed afterwards.
+
+</div>
 
 ---
 
 ## ⚠️ Read before running
 
-- **This is not CI/CD.** Running an interactive desktop on GitHub-hosted runners falls outside GitHub's intended use for Actions ("any other activity unrelated to the production, testing, deployment, or publication of the software project associated with the repository"). GitHub actively monitors for this pattern and may suspend accounts that abuse Actions resources. Run sparingly, and understand that you accept this risk yourself.
-- **The environment is ephemeral.** Everything on the machine is destroyed when the session ends or the run is cancelled. Never store personal or sensitive data inside it.
-- **No gaming.** The runner has no GPU, and running games or anti-cheat-protected software on it violates those products' terms on top of the risks above.
-- **Concurrency:** starting a NEW run cancels the live session immediately (see the warning in every run Summary).
+> [!WARNING]
+> **This is not CI/CD.** Running an interactive desktop on GitHub-hosted runners falls outside GitHub's intended use for Actions ("any other activity unrelated to the production, testing, deployment, or publication of the software project associated with the repository"). GitHub actively monitors for this pattern and may suspend accounts that abuse Actions resources. Run sparingly, and understand that you accept this risk yourself.
+
+> [!IMPORTANT]
+> - **The environment is ephemeral.** Everything on the machine is destroyed when the session ends or the run is cancelled. Never store personal or sensitive data inside it.
+> - **No gaming.** The runner has no GPU, and running games or anti-cheat-protected software on it violates those products' terms on top of the risks above.
+> - **Concurrency.** Starting a NEW run cancels the live session immediately (see the warning in every run Summary).
 
 ### What you actually get
 
@@ -32,7 +38,7 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick start
 
 ### 1. Fork this repository
 
@@ -56,10 +62,12 @@ The session joins your tailnet as a **tagged, ephemeral device** through a Tails
 Without these secrets the workflow still works, but **generated passwords are unreachable** — the Summary and the logs always mask them (pre-flight warns before any setup time is spent). For a password you already know, set `RDP_PASSWORD` instead.
 
 **Telegram:**
+
 1. Message [@BotFather](https://t.me/BotFather) → `/newbot` → follow the prompts → copy the **bot token** (`123456:ABC-...`).
 2. Send any message to your new bot, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and find `"chat":{"id":<NUMBER>}` — that number is your **chat ID**. (Or message [@userinfobot](https://t.me/userinfobot).)
 
 **Discord:**
+
 1. Server Settings → **Integrations** → **Webhooks** → **New Webhook** → pick a channel → **Copy Webhook URL**.
 
 ### 4. Store the secrets
@@ -98,11 +106,23 @@ Go to **Actions > LazyRDP > Run workflow** and pick your options:
 
 ---
 
-## ✨ What the setup does
+## ⚙️ How it works
+
+```mermaid
+flowchart TD
+    A["▶ Run workflow"] --> B["🛫 Pre-flight validation"]
+    B --> C["🔐 RDP + SSH session users"]
+    C --> D["🧹 Debloat (light / standard / deep)"]
+    D --> E["💾 Storage boost · 🎨 Theme & wallpaper"]
+    E --> F["📦 Application bundle"]
+    F --> G["🌐 Tailscale connect (tagged, ephemeral)"]
+    G --> H["📬 Summary + Telegram/Discord delivery"]
+    H --> I["💓 Self-repairing keep-alive until session end"]
+```
 
 - **Pre-flight validation** — fails in seconds with a clear message if the Tailscale OAuth secrets are missing or the theme is invalid, verifies the wallpaper URL (falling back to the bundled default when it is not an image), and warns up-front when no credential delivery path (notification channels or `RDP_PASSWORD`) exists, instead of wasting minutes of setup first.
 - **Secure provisioning** — enables RDP with Network Level Authentication and creates two accounts secured by per-run random passwords (or your own `RDP_PASSWORD`). Enables the OpenSSH Server on port 22 (same accounts, PowerShell 7 default shell) for terminal-only access. SSH and RDP firewall rules are restricted to the Tailscale subnet (`100.64.0.0/10`) — defense in depth on top of the hosting network's own inbound filtering. Registry writes go through a hardened ladder (existing-value write → create → `reg.exe` → take key ownership) borrowed from XyRDP's documented findings about TrustedInstaller-owned keys.
-- **Debloat in three levels** — `light` applies only the Ultimate Performance power plan and disables mouse acceleration; `standard` (the default, the historical behavior) also removes consumer bloatware and disables telemetry services; `deep` goes further with what a short-lived session safely tolerates: more AppX packages (Copilot, Teams, GameBar, Clipchamp, new Outlook, PowerAutomate, Cortana, Mail/Calendar), more services (Search indexing, Print Spooler, SysMain, the Xbox stack, error reporting), Windows Update held for the session so nothing reboots mid-use, and the Compatibility Appraiser task disabled. Session-critical components (Tailscale, the RDP listener, SSH) are never touched at any level.
+- **Debloat in three levels** — `light` applies only the Ultimate Performance power plan and disables mouse acceleration; `standard` (the default, the historical behavior) also removes consumer bloatware and disables telemetry services; `deep` goes further with what a short-lived session safely tolerates: more AppX packages (Copilot, Teams, GameBar, Clipchamp, new Outlook, PowerAutomate, Cortana, Mail/Calendar), more services (Search indexing, Print Spooler, SysMain, the Xbox stack, error reporting), Windows Update held for the session so nothing reboots mid-use, and the Compatibility Appraiser task disabled. Session-critical components (Tailscale, the RDP listener, SSH) are never touched at any level. Server Manager (and the legacy initial-configuration window) never auto-open at logon.
 - **Storage boost (optional)** — frees tens of gigabytes by removing SDKs and toolchains a desktop session never uses, reporting the real freed number.
 - **Personalization** — applies the chosen theme and validated wallpaper. Timezone redirection is enabled, so the session clock automatically adopts the **connecting device's** time zone at RDP connect time (no manual configuration, any country). The wallpaper is verified twice (response headers **and** file signature), and a branded default bundled in the repo is applied whenever a custom URL fails (hotlink protection, bot checks, wrong content-type) — with the exact failure reason logged and shown in the Summary.
 - **Application bundles** — installs Chrome directly from Google's signed enterprise MSI (winget's community manifest repeatedly trailed Google's rolling installer), and the remaining packages in parallel via winget with a source-refresh retry; a failed package never blocks the session, and its winget log is printed into the run log.
@@ -115,6 +135,9 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ---
 
 ## 🩺 Troubleshooting
+
+<details>
+<summary><strong>Open the troubleshooting table</strong></summary>
 
 | Symptom | Likely cause and fix |
 |---------|----------------------|
@@ -130,6 +153,8 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 | Display feels laggy | This runner encodes video on the CPU (no GPU). In mstsc: **Experience** tab → pick **LAN (10 Mbps or higher)**, keep **Persistent bitmap caching** enabled, and reconnect. Heavier graphics modes (e.g. AVC 444) make it worse, not better |
 | Desktop black but pointer visible | Press Ctrl+Alt+End > Task Manager > Run new task > `explorer.exe` |
 
+</details>
+
 ---
 
 ## 📜 Changelog
@@ -137,6 +162,9 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ### v8.3
 - **Tailscale OAuth instead of auth keys:** the session now joins your tailnet as a tagged ephemeral node through a Tailscale OAuth client (`TAILSCALE_OAUTH_CLIENT_ID` + `TAILSCALE_OAUTH_CLIENT_SECRET`) — OAuth clients never expire, which permanently removes the "auth key expired" failure mode. The node tag (`tag:lazyrdp`) must exist in the tailnet's Access Controls, and the self-repairing watchdog re-joins with the same OAuth mechanism.
 - **Cleaner logon:** Server Manager (and the legacy initial-configuration window) no longer auto-open at logon, at every debloat level.
+
+<details>
+<summary><strong>Older versions</strong></summary>
 
 ### v8.2
 - **Debloat levels:** new `debloat_level` input — `light` (performance tuning only), `standard` (the previous fixed behavior, still the default) and `deep` (aggressive removals vetted for a short-lived RDP session: extra AppX packages, extra services, Windows Update held for the session, Compatibility Appraiser disabled). The Summary reports the applied level with package/service counts, and session-critical components are never touched at any level.
@@ -151,7 +179,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ### v8.0
 - **Private credential delivery:** Telegram and/or Discord receive the full connection details when the session is ready; the Summary hid passwords unless no channel delivered (a fallback behavior that v8.1 removed — the Summary now always masks). New optional secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DISCORD_WEBHOOK_URL`.
 - **Self-repairing sessions:** the keep-alive watchdog now verifies the actual Tailscale tailnet connection (not just the service), re-joins automatically after a drop (max 3 attempts), and if the IP changes it updates the Summary with an "IP UPDATED" section and re-notifies your channels.
-- **XyRDP-inspired hardening:** a registry-write ladder (existing-value write → create → `reg.exe add` → take key ownership) protects every registry write against TrustedInstaller-owned key denials documented on the 2025 runner images.
+- **XyRDP-inspired hardening:** a registry-write ladder (existing-value write → create → `reg.exe` → take key ownership) protects every registry write against TrustedInstaller-owned key denials documented on the 2025 runner images.
 - **New inputs:** `storage_boost` (frees tens of GB by removing Android SDK, Docker images, Go, Haskell, CodeQL and caches, reporting the real freed number) and `timezone` (validated Windows time zone Id applied to the session).
 - **Summary improvements:** explicit concurrency warning (a new run cancels the live session), timezone and storage notes, and the `explorer.exe` recovery tip.
 - **Lineage:** starts from `Windows-11-Ultimate-RDP` v7.5 — which itself carried the v7.4 overhaul (random masked-then-unmasked credentials, env-based input passing, official pinned Tailscale action, Chrome direct signed-MSI install, explicit `exit 0` for pwsh runner semantics, per-step timeouts, pre-flight validation, Quality Gate CI).
@@ -159,14 +187,19 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ### v7.5 and earlier
 See the `Windows-11-Ultimate-RDP` repository history.
 
+</details>
+
 ---
 
-## ⚖️ Disclaimer
+> [!CAUTION]
+> This project is for educational and experimental purposes. It is an **ephemeral environment** — the machine and all its data are permanently destroyed when the workflow is cancelled or completes. Do not store critical or sensitive data in a session, and use GitHub's resources responsibly and in accordance with their terms of service.
 
-This project is for educational and experimental purposes. It is an **ephemeral environment** — the machine and all its data are permanently destroyed when the workflow is cancelled or completes. Do not store critical or sensitive data in a session, and use GitHub's resources responsibly and in accordance with their terms of service.
+<div align="center">
 
 ## 📄 License
 
 [MIT](LICENSE)
 
 Maintained by **[LazyByte0x](https://github.com/LazyByte0x)** — registry hardening, storage-boost and session-resilience patterns inspired by [XyRDP](https://github.com/xykal/XyRDP).
+
+</div>
