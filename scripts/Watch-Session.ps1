@@ -35,6 +35,7 @@ $passwordLines
 
 Ends: $endsAt (UTC). Environment is destroyed afterwards - store nothing in the session.
 Connect: sign in to Tailscale, then open any RDP client (Windows: mstsc) to the host above.
+Terminal (SSH): ssh runneradmin@$Ip - same password, PowerShell 7 shell.
 "@
 }
 
@@ -93,6 +94,8 @@ $summary = @"
 1. Install the **Tailscale client** on your device and sign in to the same tailnet used for this workflow.
 2. Open your RDP client (Windows: ``mstsc``) and connect to the address below.
 3. Sign in with one of the accounts below.
+
+4. *(Optional)* Terminal access: ``ssh runneradmin@<ip>`` - port 22, same credentials, PowerShell 7 shell.
 
 $credsSection
 

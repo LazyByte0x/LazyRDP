@@ -26,7 +26,7 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 | Operating system | Windows Server 2025 (GitHub's `windows-latest` image — a server edition, not a Windows 11 desktop) |
 | Hardware | 4 vCPUs, 16 GB RAM, ~14 GB free disk (more with `storage_boost`) |
 | Session lifetime | 1–6 hours, your choice (default 6) |
-| Access | RDP over Tailscale only — no public IPs, no open ports |
+| Access | RDP + SSH terminal over Tailscale only — no public IPs, no open ports |
 | Accounts | `runneradmin` (main, personalized) and `lazyuser` (clean spare), **randomly generated passwords per run** |
 | Credentials | **Never displayed in the Summary** — always sent to your Telegram and/or Discord. Set `RDP_PASSWORD` to own the password yourself. |
 
@@ -84,22 +84,24 @@ If a second run starts while a session is live, the new run replaces the old one
 ### 6. Connect
 
 1. Wait for the run — when the session is ready, **your Telegram/Discord receives the IP, both accounts, and passwords**. (If you skipped step 3, no message is sent — passwords are then only recoverable from the raw log of the "Publish summary" step, env block.)
-2. The run **Summary** always shows the address, the end time, and step-by-step instructions; it shows passwords only if no channel was configured or delivery failed.
+2. The run **Summary** always shows the address, the end time, and step-by-step connection instructions — passwords are never displayed there; they arrive via your channels.
 3. Install the Tailscale client on your device, sign in to the same tailnet, then connect with any RDP client to the `100.x.x.x` address.
 4. **Sign in as `runneradmin`** — that account carries all personalization (theme, wallpaper, mouse tuning, OBS profile).
+5. *(Optional)* Terminal access without a desktop: `ssh runneradmin@<ip>` — port 22, same credentials, PowerShell 7 shell.
 
 ---
 
 ## ✨ What the setup does
 
 - **Pre-flight validation** — fails in seconds with a clear message if the Tailscale key is missing, the theme is invalid, or the wallpaper URL is not an image, instead of wasting minutes of setup first.
-- **Secure provisioning** — enables RDP with Network Level Authentication and creates two accounts whose passwords are cryptographically random per run. Registry writes go through a hardened ladder (existing-value write → create → `reg.exe` → take key ownership) borrowed from XyRDP's documented findings about TrustedInstaller-owned keys.
+- **Secure provisioning** — enables RDP with Network Level Authentication and creates two accounts whose passwords are cryptographically random per run. Enables the OpenSSH Server on port 22 (same accounts, PowerShell 7 default shell) for terminal-only access. Registry writes go through a hardened ladder (existing-value write → create → `reg.exe` → take key ownership) borrowed from XyRDP's documented findings about TrustedInstaller-owned keys.
 - **Debloat and tuning** — removes consumer bloatware, disables telemetry services, activates the Ultimate Performance power plan, and disables mouse acceleration.
 - **Storage boost (optional)** — frees tens of gigabytes by removing SDKs and toolchains a desktop session never uses, reporting the real freed number.
 - **Personalization** — applies the chosen theme and validated wallpaper. Timezone redirection is enabled, so the session clock automatically adopts the **connecting device's** time zone at RDP connect time (no manual configuration, any country). The wallpaper is verified twice (response headers **and** file signature), and a branded default bundled in the repo is applied whenever a custom URL fails (hotlink protection, bot checks, wrong content-type) — with the exact failure reason logged and shown in the Summary.
 - **Application bundles** — installs Chrome directly from Google's signed enterprise MSI (winget's community manifest repeatedly trailed Google's rolling installer), and the remaining packages in parallel via winget with a source-refresh retry; a failed package never blocks the session, and its winget log is printed into the run log.
 - **Private credential delivery** — the moment the session is ready, Telegram and/or Discord receive the full connection details **including passwords**. The Summary **never** displays passwords in any mode — they live in your private channels (or in your `RDP_PASSWORD` secret); pre-flight warns when no delivery path exists.
 - **Self-repairing keep-alive** — every 5 minutes the session verifies the Tailscale service, the actual tailnet connection, and the RDP listener. If the node drops off the tailnet, it re-joins automatically (up to 3 attempts); if the IP changes, the Summary gains an "IP UPDATED" section and your channels receive the new address.
+- **Session quality** — runs the Windows audio stack so Remote Audio playback/microphone redirection can work (may be limited on audio-less VMs), and prefers the H.264/AVC 444 graphics mode for sharper text and colors; unsupported clients fall back automatically.
 - **Quality gate** — pull requests and direct pushes to `main` are linted with actionlint (workflow files) and PSScriptAnalyzer (PowerShell scripts) so a broken change never reaches a run.
 
 All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orchestrator that passes user inputs through environment variables (never text interpolation), which closes the script-injection vector that earlier versions had.
@@ -127,6 +129,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ## 📜 Changelog
 
 ### v8.1
+- **SSH terminal access + session quality:** OpenSSH Server runs on port 22 over Tailscale (same accounts and password, PowerShell 7 default shell) for desktop-free terminal access; the Windows audio stack is enabled for Remote Audio playback/microphone redirection (best-effort on audio-less VMs) and the H.264/AVC 444 graphics mode is preferred for sharper text and colors, with automatic client fallback.
 - **Automatic timezone:** the manual `timezone` input was removed — RDP timezone redirection (`fEnableTimeZoneRedirection`) is enabled instead, so the session clock automatically adopts the **connecting device's** time zone when you connect via mstsc. The Summary shows UTC only.
 - **Passwords are ALWAYS masked in the Summary** — in every mode, regardless of delivery outcome (owner directive). Passwords travel exclusively to the configured Telegram/Discord channels; with `RDP_PASSWORD` set you own the password yourself, and pre-flight warns up-front when no delivery path exists for generated passwords.
 - **Wallpaper robustness:** images are now verified by file signature (magic bytes) when headers lie; a branded default wallpaper bundled in the repo (`assets/wallpaper.jpg`) is applied whenever the custom URL fails, and the exact failure reason (status/content-type) is logged and shown in the Summary.

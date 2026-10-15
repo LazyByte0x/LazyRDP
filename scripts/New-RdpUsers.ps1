@@ -94,4 +94,29 @@ Add-LocalGroupMemberSafe -GroupName 'Remote Desktop Users' -MemberName 'lazyuser
 Add-GithubEnv -Name 'RDP_SESSION_PASS' -Value $sessionPassword
 Write-Ok "Session user 'lazyuser' provisioned (Administrators + Remote Desktop Users)"
 
+# SSH terminal access over Tailscale (port 22): same accounts, same password,
+# PowerShell 7 as the default shell. A terminal-only entry point for moments
+# when a full desktop is unnecessary or an RDP client is unavailable.
+$sshCapability = Get-WindowsCapability -Online -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like 'OpenSSH.Server*' } | Select-Object -First 1
+if ($null -ne $sshCapability -and $sshCapability.State -ne 'Installed') {
+    Add-WindowsCapability -Online -Name $sshCapability.Name -ErrorAction SilentlyContinue | Out-Null
+}
+Set-Service -Name 'sshd' -StartupType Automatic -ErrorAction SilentlyContinue
+Start-Service -Name 'sshd' -ErrorAction SilentlyContinue
+$sshdService = Get-Service -Name 'sshd' -ErrorAction SilentlyContinue
+if ($null -ne $sshdService -and $sshdService.Status -eq 'Running') {
+    if (-not (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' `
+            -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
+    }
+    $pwshPath = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+    if (Test-Path $pwshPath) {
+        Set-RegistryValue -Path 'HKLM:\SOFTWARE\OpenSSH' -Name 'DefaultShell' -Value $pwshPath
+    }
+    Write-Ok 'SSH terminal access enabled on port 22 (same accounts and password)'
+} else {
+    Write-Warn 'OpenSSH Server is unavailable on this image - SSH access skipped.'
+}
+
 exit 0
