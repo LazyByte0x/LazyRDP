@@ -19,7 +19,12 @@ Set-RegistryValue -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\
 # zone at connect time, so the session clock automatically matches the user's
 # device - no manual timezone configuration needed, for any country.
 Set-RegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name 'fEnableTimeZoneRedirection' -Value 1 -Type DWord
-Write-Ok 'RDP listener enabled with Network Level Authentication and timezone redirection'
+# Defense in depth: restrict the built-in RDP firewall rules to the Tailscale
+# CGNAT range (the source address every RDP-over-Tailscale connection arrives
+# from) instead of leaving them open to all sources.
+Get-NetFirewallRule -Name 'RemoteDesktop-*' -ErrorAction SilentlyContinue |
+    Set-NetFirewallRule -RemoteAddress '100.64.0.0/10' -ErrorAction SilentlyContinue
+Write-Ok 'RDP listener enabled with Network Level Authentication and timezone redirection (firewall restricted to the Tailscale subnet)'
 
 function Set-LocalUserPassword {
     param(
@@ -107,14 +112,18 @@ Start-Service -Name 'sshd' -ErrorAction SilentlyContinue
 $sshdService = Get-Service -Name 'sshd' -ErrorAction SilentlyContinue
 if ($null -ne $sshdService -and $sshdService.Status -eq 'Running') {
     if (-not (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
+        # 100.64.0.0/10 is the CGNAT range Tailscale allocates tailnet addresses
+        # from. The hosting network already blocks public inbound - this rule
+        # restriction is defense in depth, not the primary control.
         New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' `
-            -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
+            -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 `
+            -RemoteAddress '100.64.0.0/10' | Out-Null
     }
     $pwshPath = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
     if (Test-Path $pwshPath) {
         Set-RegistryValue -Path 'HKLM:\SOFTWARE\OpenSSH' -Name 'DefaultShell' -Value $pwshPath
     }
-    Write-Ok 'SSH terminal access enabled on port 22 (same accounts and password)'
+    Write-Ok 'SSH terminal access enabled on port 22 (restricted to the Tailscale subnet)'
 } else {
     Write-Warn 'OpenSSH Server is unavailable on this image - SSH access skipped.'
 }

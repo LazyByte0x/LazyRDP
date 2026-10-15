@@ -18,7 +18,10 @@ foreach ($serviceName in @('AudioEndpointBuilder', 'Audiosrv')) {
     }
 }
 
-Set-RegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name 'AVC444_ModePreferred' -Value 1 -Type DWord
+# The policy "Prioritize H.264/AVC 444 graphics mode" maps to the registry
+# value AVC444ModePreferred (no underscore) - per the ADMX-derived policy
+# reference. Unsupported clients fall back automatically.
+Set-RegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name 'AVC444ModePreferred' -Value 1 -Type DWord
 Write-Ok 'AVC 444 graphics mode preferred (clients fall back automatically when unsupported)'
 
 exit 0
