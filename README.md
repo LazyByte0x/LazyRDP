@@ -101,7 +101,7 @@ If a second run starts while a session is live, the new run replaces the old one
 - **Application bundles** — installs Chrome directly from Google's signed enterprise MSI (winget's community manifest repeatedly trailed Google's rolling installer), and the remaining packages in parallel via winget with a source-refresh retry; a failed package never blocks the session, and its winget log is printed into the run log.
 - **Private credential delivery** — the moment the session is ready, Telegram and/or Discord receive the full connection details **including passwords**. The Summary **never** displays passwords in any mode — they live in your private channels (or in your `RDP_PASSWORD` secret); pre-flight warns when no delivery path exists.
 - **Self-repairing keep-alive** — every 5 minutes the session verifies the Tailscale service, the actual tailnet connection, and the RDP listener. If the node drops off the tailnet, it re-joins automatically (up to 3 attempts); if the IP changes, the Summary gains an "IP UPDATED" section and your channels receive the new address.
-- **Session quality** — runs the Windows audio stack so Remote Audio playback/microphone redirection can work (may be limited on audio-less VMs), and prefers the H.264/AVC 444 graphics mode for sharper text and colors; unsupported clients fall back automatically.
+- **Session quality** — runs the Windows audio stack so Remote Audio playback/microphone redirection can work (may be limited on audio-less VMs).
 - **Quality gate** — pull requests and direct pushes to `main` are linted with actionlint (workflow files) and PSScriptAnalyzer (PowerShell scripts) so a broken change never reaches a run.
 
 All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orchestrator that passes user inputs through environment variables (never text interpolation), which closes the script-injection vector that earlier versions had.
@@ -122,6 +122,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 | An application failed to install | The session still comes up; the last lines of the winget log are printed in the install step log — review them there, then rerun |
 | Session ended earlier than expected | The `session_hours` input elapsed, or a newer run replaced this one; the Summary shows the planned end time |
 | Job killed at exactly 6 hours | The platform cap — choose a lower `session_hours` value for graceful shutdown |
+| Display feels laggy | This runner encodes video on the CPU (no GPU). In mstsc: **Experience** tab → pick **LAN (10 Mbps or higher)**, keep **Persistent bitmap caching** enabled, and reconnect. Heavier graphics modes (e.g. AVC 444) make it worse, not better |
 | Desktop black but pointer visible | Press Ctrl+Alt+End > Task Manager > Run new task > `explorer.exe` |
 
 ---
@@ -129,7 +130,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ## 📜 Changelog
 
 ### v8.1
-- **SSH terminal access + session quality:** OpenSSH Server runs on port 22 over Tailscale (same accounts and password, PowerShell 7 default shell) for desktop-free terminal access; the Windows audio stack is enabled for Remote Audio playback/microphone redirection (best-effort on audio-less VMs) and the H.264/AVC 444 graphics mode is preferred for sharper text and colors, with automatic client fallback.
+- **SSH terminal access + session quality:** OpenSSH Server runs on port 22 over Tailscale (same accounts and password, PowerShell 7 default shell) for desktop-free terminal access; the Windows audio stack is enabled for Remote Audio playback/microphone redirection (best-effort on audio-less VMs). An H.264/AVC 444 graphics preference was also tried and **reverted**: with no GPU, 444 encoding runs on the CPU and visibly lagged the display.
 - **Automatic timezone:** the manual `timezone` input was removed — RDP timezone redirection (`fEnableTimeZoneRedirection`) is enabled instead, so the session clock automatically adopts the **connecting device's** time zone when you connect via mstsc. The Summary shows UTC only.
 - **Passwords are ALWAYS masked in the Summary** — in every mode, regardless of delivery outcome (owner directive). Passwords travel exclusively to the configured Telegram/Discord channels; with `RDP_PASSWORD` set you own the password yourself, and pre-flight warns up-front when no delivery path exists for generated passwords.
 - **Wallpaper robustness:** images are now verified by file signature (magic bytes) when headers lie; a branded default wallpaper bundled in the repo (`assets/wallpaper.jpg`) is applied whenever the custom URL fails, and the exact failure reason (status/content-type) is logged and shown in the Summary.

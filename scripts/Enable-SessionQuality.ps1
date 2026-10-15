@@ -1,12 +1,16 @@
-﻿# Session quality experiments: run the Windows audio stack so Remote Audio
-# playback/microphone redirection can work, and prefer the H.264/AVC 444
-# graphics mode for sharper text and color fidelity. Audio may be a no-op on
-# audio-less VMs; AVC444 is a preference that unsupported clients fall back
-# from automatically.
+﻿# Session quality: run the Windows audio stack so Remote Audio playback/
+# microphone redirection can work. Best-effort by design - audio-less VMs
+# warn instead of failing.
+#
+# An earlier version also preferred the H.264/AVC 444 graphics mode
+# (AVC444ModePreferred=1). It was REVERTED after a live session: this
+# runner has no GPU, so 444 encoding runs on the CPU and made the display
+# and connection noticeably laggy for little visual gain. Do not re-add
+# it unless the runner ever gets hardware encoding.
 $ErrorActionPreference = 'Continue'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -Force
 
-Write-Step 'Session quality (audio + graphics)'
+Write-Step 'Session quality (audio)'
 
 foreach ($serviceName in @('AudioEndpointBuilder', 'Audiosrv')) {
     try {
@@ -17,11 +21,5 @@ foreach ($serviceName in @('AudioEndpointBuilder', 'Audiosrv')) {
         Write-Warn "$serviceName could not start (expected on audio-less VMs): $($_.Exception.Message)"
     }
 }
-
-# The policy "Prioritize H.264/AVC 444 graphics mode" maps to the registry
-# value AVC444ModePreferred (no underscore) - per the ADMX-derived policy
-# reference. Unsupported clients fall back automatically.
-Set-RegistryValue -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -Name 'AVC444ModePreferred' -Value 1 -Type DWord
-Write-Ok 'AVC 444 graphics mode preferred (clients fall back automatically when unsupported)'
 
 exit 0
