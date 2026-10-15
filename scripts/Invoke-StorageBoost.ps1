@@ -1,4 +1,4 @@
-# Frees tens of gigabytes by removing preinstalled toolchains that a desktop
+﻿# Frees tens of gigabytes by removing preinstalled toolchains that a desktop
 # session never uses (XyRDP reports 45-75 GB on the same image family; this
 # script measures and reports the real number). Conservative targets only:
 # SDKs, toolchains, and package caches - nothing the Windows session depends on.

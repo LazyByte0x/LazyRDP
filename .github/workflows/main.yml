@@ -63,6 +63,10 @@ jobs:
         shell: pwsh
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           THEME: ${{ inputs.theme }}
           WALLPAPER_URL: ${{ inputs.wallpaper_url }}
           SESSION_HOURS: ${{ inputs.session_hours }}
@@ -135,6 +139,7 @@ jobs:
         env:
           APP_BUNDLE: ${{ inputs.app_bundle }}
           THEME: ${{ inputs.theme }}
+          RDP_PASSWORD: ${{ secrets.RDP_PASSWORD }}
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

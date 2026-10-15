@@ -1,4 +1,4 @@
-# Fails fast on missing configuration before any expensive setup work runs.
+﻿# Fails fast on missing configuration before any expensive setup work runs.
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -Force
 
@@ -11,6 +11,17 @@ if ([string]::IsNullOrWhiteSpace($env:TAILSCALE_AUTH_KEY)) {
     exit 1
 }
 Write-Ok 'TAILSCALE_AUTH_KEY secret is present'
+
+# 1b. Credential reachability. The Summary always masks passwords, so a
+#    session with no notification channels and no RDP_PASSWORD has no way to
+#    surface its generated passwords - warn before any setup time is spent.
+$hasTelegram = (-not [string]::IsNullOrWhiteSpace($env:TELEGRAM_BOT_TOKEN)) -and (-not [string]::IsNullOrWhiteSpace($env:TELEGRAM_CHAT_ID))
+$hasDiscord = -not [string]::IsNullOrWhiteSpace($env:DISCORD_WEBHOOK_URL)
+if (-not $hasTelegram -and -not $hasDiscord -and [string]::IsNullOrWhiteSpace($env:RDP_PASSWORD)) {
+    Write-Host '::warning::No notification secrets and no RDP_PASSWORD are configured - generated passwords will be unreachable because the Summary always masks them. Add TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID or DISCORD_WEBHOOK_URL, or set RDP_PASSWORD.' -ForegroundColor Yellow
+} else {
+    Write-Ok 'Credential delivery path available (notification channels or RDP_PASSWORD)'
+}
 
 # 2. Theme must be one of the supported values.
 $theme = $env:THEME

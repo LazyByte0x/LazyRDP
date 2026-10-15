@@ -1,4 +1,4 @@
-# Applies the requested desktop theme and the pre-validated wallpaper.
+﻿# Applies the requested desktop theme and the pre-validated wallpaper.
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -Force
 

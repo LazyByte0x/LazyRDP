@@ -1,4 +1,4 @@
-# Publishes the session summary, sends the credentials to the user's private
+﻿# Publishes the session summary, sends the credentials to the user's private
 # channels (Telegram/Discord when configured), then keeps the session alive
 # with health checks that also REPAIR a dropped Tailscale connection. Ending
 # this script ends the job, which destroys the environment - the intended
@@ -18,7 +18,7 @@ $notifyScript = Join-Path $PSScriptRoot 'Notify-Session.ps1'
 function Get-SessionMessage {
     param([string]$Ip)
     $passwordLines = if ($env:PASSWORD_MODE -eq 'user') {
-        'Password: the value of your RDP_PASSWORD secret (never transmitted)'
+        "Password (runneradmin + lazyuser): $($env:RDP_PASSWORD)"
     } else {
         "Password (runneradmin): $($env:RDP_ADMIN_PASS)`nPassword (lazyuser): $($env:RDP_SESSION_PASS)"
     }
@@ -35,10 +35,11 @@ Connect: sign in to Tailscale, then open any RDP client (Windows: mstsc) to the 
 "@
 }
 
-# --- Private credential delivery ------------------------------------------------
-# Three display modes: user password (always masked - the user knows it, XyRDP
-# style), generated + delivered (hidden, private channel won), generated +
-# nothing delivered (fallback: the Summary is the only way to get them).
+# --- Credential display: ALWAYS masked in the Summary ---------------------------
+# Passwords travel to the user's private channels only. The Summary never
+# displays them, in any mode, regardless of delivery outcome - per the owner's
+# standing directive. If no channel delivered and no RDP_PASSWORD is set, the
+# generated values are only recoverable from this step's raw log env block.
 $delivered = @(& $notifyScript -Message (Get-SessionMessage -Ip $currentIp))
 # Prefer the file verdict Notify-Session published (robust across scopes);
 # fall back to the output capture if the file is missing.
@@ -64,45 +65,24 @@ if (-not [string]::IsNullOrWhiteSpace($env:TIMEZONE_VALID)) { $timeZoneNote = "`
 $storageNote = ''
 if (-not [string]::IsNullOrWhiteSpace($env:STORAGE_BOOST_FREED_GB)) { $storageNote = "`n- **Storage boost:** freed $($env:STORAGE_BOOST_FREED_GB) GB" }
 
-if ($env:PASSWORD_MODE -eq 'user') {
-    $credsSection = @"
+$credsSection = @"
 | Property | Value |
 |----------|-------|
 | **Address (Tailscale IP)** | ``$currentIp`` |
 | **Username 1** | ``runneradmin`` |
 | **Username 2** | ``lazyuser`` |
-| **Passwords** | ``••••••••`` - your ``RDP_PASSWORD`` secret |
-
-🔒 **Masked mode:** the session uses your own ``RDP_PASSWORD`` secret, so no
-password is displayed here or sent through any channel.
+| **Passwords** | ``••••••••`` - never displayed in the Summary |
 "@
-} elseif ($delivered.Count -gt 0) {
-    $credsSection = @"
-| Property | Value |
-|----------|-------|
-| **Address (Tailscale IP)** | ``$currentIp`` |
-| **Username 1** | ``runneradmin`` |
-| **Username 2** | ``lazyuser`` |
 
-📬 **Passwords were sent to your private channel(s): $($delivered -join ', ')** - they are intentionally not shown here.
-"@
+if ($delivered.Count -eq 0 -and $env:PASSWORD_MODE -ne 'user') {
+    Write-Host '::notice::No private channel delivered - the Summary stays masked; the passwords are only in the raw env block of this step log.'
+}
+$credsHint = if ($delivered.Count -gt 0) {
+    "📬 **Passwords were sent to your private channel(s): $($delivered -join ', ')**"
+} elseif ($env:PASSWORD_MODE -eq 'user') {
+    "🔒 **Passwords:** the value of your ``RDP_PASSWORD`` secret (you set it yourself)"
 } else {
-    $credsSection = @"
-| Property | Value |
-|----------|-------|
-| **Address (Tailscale IP)** | ``$currentIp`` |
-| **Username 1** | ``runneradmin`` |
-| **Password 1** | ``$($env:RDP_ADMIN_PASS)`` |
-| **Username 2** | ``lazyuser`` |
-| **Password 2** | ``$($env:RDP_SESSION_PASS)`` |
-
-> ⚠️ **Privacy note:** no notification channel was configured or reachable, so
-> the credentials are shown here - visible to anyone who can view this
-> repository's Actions runs. Configure ``TELEGRAM_BOT_TOKEN`` + ``TELEGRAM_CHAT_ID``
-> or ``DISCORD_WEBHOOK_URL`` secrets for private delivery. Secrets are read
-> when the run STARTS - if you added them after starting, start a new run.
-"@
-    Write-Host '::notice::Credentials were not delivered to any private channel - showing them in the Summary as a fallback.'
+    "⚠️ **Passwords:** no channel delivered this run - they are only visible in the raw log of this step (env block). Configure notification secrets or set ``RDP_PASSWORD``."
 }
 
 $summary = @"
@@ -114,6 +94,9 @@ $summary = @"
 3. Sign in with one of the accounts below.
 
 $credsSection
+
+$credsHint
+
 ### Session details
 - **Theme:** $($env:THEME)$timeZoneNote
 - **Wallpaper:** $(if (-not [string]::IsNullOrWhiteSpace($env:WALLPAPER_NOTE)) { $env:WALLPAPER_NOTE } else { 'system default' })

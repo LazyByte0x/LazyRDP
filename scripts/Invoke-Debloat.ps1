@@ -1,4 +1,4 @@
-# Removes consumer bloatware, disables telemetry services, and applies performance tweaks.
+﻿# Removes consumer bloatware, disables telemetry services, and applies performance tweaks.
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -Force
 

@@ -1,4 +1,4 @@
-# Shared helpers for the LazyRDP workflow scripts.
+﻿# Shared helpers for the LazyRDP workflow scripts.
 # Target runtime: PowerShell 7 (workflow steps use shell: pwsh).
 
 Set-StrictMode -Version Latest

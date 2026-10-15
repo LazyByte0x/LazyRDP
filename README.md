@@ -30,7 +30,7 @@ A fully automated, customizable remote desktop session deployed from GitHub Acti
 | Session lifetime | 1–6 hours, your choice (default 6) |
 | Access | RDP over Tailscale only — no public IPs, no open ports |
 | Accounts | `runneradmin` (main, personalized) and `lazyuser` (clean spare), **randomly generated passwords per run** |
-| Credentials | Delivered to your **Telegram and/or Discord**; shown in the Summary only as a fallback. Set `RDP_PASSWORD` to use your own password and mask everything. |
+| Credentials | **Never displayed in the Summary** — always sent to your Telegram and/or Discord. Set `RDP_PASSWORD` to own the password yourself. |
 
 ---
 
@@ -64,7 +64,7 @@ In your fork: **Settings > Secrets and variables > Actions > New repository secr
 | Secret | Required | Purpose |
 |--------|----------|---------|
 | `TAILSCALE_AUTH_KEY` | ✅ | Network access (ephemeral + reusable key) |
-| `RDP_PASSWORD` | optional | **Use your own session password.** When set, no password is ever displayed in the Summary or sent through any channel (XyRDP-style masking). Applies to both accounts; 8+ characters recommended. |
+| `RDP_PASSWORD` | recommended | **Own your session password.** The Summary never displays passwords; without notification secrets AND without `RDP_PASSWORD`, generated passwords are unreachable (pre-flight warns). Applies to both accounts; 8+ characters recommended. |
 | `TELEGRAM_BOT_TOKEN` | optional | Telegram credential delivery |
 | `TELEGRAM_CHAT_ID` | optional | Telegram credential delivery |
 | `DISCORD_WEBHOOK_URL` | optional | Discord credential delivery |
@@ -101,7 +101,7 @@ If a second run starts while a session is live, the new run replaces the old one
 - **Storage boost (optional)** — frees tens of gigabytes by removing SDKs and toolchains a desktop session never uses, reporting the real freed number.
 - **Personalization** — applies the chosen theme, validated wallpaper, and optional timezone. The wallpaper is verified twice (response headers **and** file signature), and a branded default bundled in the repo is applied whenever a custom URL fails (hotlink protection, bot checks, wrong content-type) — with the exact failure reason logged and shown in the Summary.
 - **Application bundles** — installs Chrome directly from Google's signed enterprise MSI (winget's community manifest repeatedly trailed Google's rolling installer), and the remaining packages in parallel via winget with a source-refresh retry; a failed package never blocks the session, and its winget log is printed into the run log.
-- **Private credential delivery** — the moment the session is ready, Telegram and/or Discord receive the full connection details; the Summary hides passwords unless no channel delivered.
+- **Private credential delivery** — the moment the session is ready, Telegram and/or Discord receive the full connection details **including passwords**. The Summary **never** displays passwords in any mode — they live in your private channels (or in your `RDP_PASSWORD` secret); pre-flight warns when no delivery path exists.
 - **Self-repairing keep-alive** — every 5 minutes the session verifies the Tailscale service, the actual tailnet connection, and the RDP listener. If the node drops off the tailnet, it re-joins automatically (up to 3 attempts); if the IP changes, the Summary gains an "IP UPDATED" section and your channels receive the new address.
 - **Quality gate** — pull requests and direct pushes to `main` are linted with actionlint (workflow files) and PSScriptAnalyzer (PowerShell scripts) so a broken change never reaches a run.
 
@@ -115,7 +115,8 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 |---------|----------------------|
 | Run fails at pre-flight: `TAILSCALE_AUTH_KEY secret is not set` | Add the secret as described in step 4 |
 | Run fails at the Tailscale step | The auth key expired, is single-use, or was already consumed — generate a new Ephemeral + Reusable key |
-| No Telegram/Discord message | Check the `NOTIFY: Telegram=... \| Discord=...` verdict line in the "Publish summary" step log. Secrets are snapshotted at run start — if you added them after starting, start a NEW run. The credentials are in the Summary meanwhile |
+| Where are my passwords? | The Summary always masks them. Check your Telegram/Discord message; if neither was configured for that run, search the raw log of the "Publish summary" step for `RDP_ADMIN_PASS` (env block) — and set `RDP_PASSWORD` or the notification secrets for future runs |
+| No Telegram/Discord message | Check the `NOTIFY: Telegram=... \| Discord=...` verdict line in the "Publish summary" step log. Secrets are snapshotted at run start — if you added them after starting, start a NEW run |
 | Cannot connect from your device | Your device must be signed in to the **same tailnet**; check the Tailscale client status before blaming the session |
 | IP stopped working mid-session | The watchdog repaired a drop and the IP changed — the Summary has an "IP UPDATED" section and your channels got the new address |
 | Wrong credentials | Credentials differ per run; read them from the **notification channel or the Summary of that specific run** |
@@ -129,7 +130,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ## 📜 Changelog
 
 ### v8.1
-- **Masked password mode (XyRDP-style):** set the optional `RDP_PASSWORD` secret to use your own session password — no password is then displayed in the Summary or transmitted through any notification. Without it, per-run random passwords keep the deliver-then-fallback behavior.
+- **Passwords are ALWAYS masked in the Summary** — in every mode, regardless of delivery outcome (owner directive). Passwords travel exclusively to the configured Telegram/Discord channels; with `RDP_PASSWORD` set you own the password yourself, and pre-flight warns up-front when no delivery path exists for generated passwords.
 - **Wallpaper robustness:** images are now verified by file signature (magic bytes) when headers lie; a branded default wallpaper bundled in the repo (`assets/wallpaper.jpg`) is applied whenever the custom URL fails, and the exact failure reason (status/content-type) is logged and shown in the Summary.
 - **Unambiguous delivery verdicts:** every channel prints a `NOTIFY: Telegram=DELIVERED|FAILED|NOT_CONFIGURED` line, the delivery state is published to a temp file the Summary step re-reads (no reliance on output capture), and the Summary clarifies that secrets are snapshotted at run start — adding secrets after starting a run requires a new run.
 

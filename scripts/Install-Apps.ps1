@@ -1,4 +1,4 @@
-# Installs the selected application bundle: Chrome from Google's signed
+﻿# Installs the selected application bundle: Chrome from Google's signed
 # enterprise MSI directly, everything else via winget (parallel, with a
 # sequential retry for failures). The owning workflow step runs with
 # continue-on-error so a failed package never blocks the session from coming up.

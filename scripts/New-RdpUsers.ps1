@@ -1,4 +1,4 @@
-# Enables RDP and provisions the two session accounts with per-run random passwords.
+﻿# Enables RDP and provisions the two session accounts with per-run random passwords.
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Common.psm1') -Force
 
