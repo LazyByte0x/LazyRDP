@@ -67,6 +67,10 @@ if ($env:APP_BUNDLE -eq 'clean') {
 }
 $storageNote = ''
 if (-not [string]::IsNullOrWhiteSpace($env:STORAGE_BOOST_FREED_GB)) { $storageNote = "`n- **Storage boost:** freed $($env:STORAGE_BOOST_FREED_GB) GB" }
+$debloatNote = 'standard (default)'
+if (-not [string]::IsNullOrWhiteSpace($env:DEBLOAT_LEVEL_APPLIED)) {
+    $debloatNote = "$($env:DEBLOAT_LEVEL_APPLIED) - $($env:DEBLOAT_PACKAGES_REMOVED) packages, $($env:DEBLOAT_SERVICES_DISABLED) services disabled"
+}
 
 $credsSection = @"
 | Property | Value |
@@ -106,6 +110,7 @@ $credsHint
 - **Theme:** $($env:THEME)
 - **Wallpaper:** $(if (-not [string]::IsNullOrWhiteSpace($env:WALLPAPER_NOTE)) { $env:WALLPAPER_NOTE } else { 'system default' })
 - **Applications:** $appsStatus$storageNote
+- **Debloat:** $debloatNote
 - **Ends at:** $endsAt - the environment is destroyed shortly after; store nothing here. (The session clock automatically follows the connecting device's time zone once you connect via RDP.)
 
 > ⚠️ **Concurrency warning:** starting a NEW run of this workflow cancels this

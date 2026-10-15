@@ -37,6 +37,15 @@ on:
           - 'no'
           - 'yes'
         default: 'no'
+      debloat_level:
+        description: 'Debloat intensity: light (performance only), standard (bloatware + telemetry), deep (aggressive, vetted for short sessions)'
+        required: false
+        type: choice
+        options:
+          - standard
+          - light
+          - deep
+        default: 'standard'
 
 permissions:
   contents: read
@@ -78,6 +87,8 @@ jobs:
       - name: '🧹 Debloat and optimize Windows'
         timeout-minutes: 10
         shell: pwsh
+        env:
+          DEBLOAT_LEVEL: ${{ inputs.debloat_level }}
         run: ./scripts/Invoke-Debloat.ps1
 
       - name: '💾 Storage boost'
