@@ -10,8 +10,13 @@ $sessionHours = 5.9
 if (-not [double]::TryParse($env:SESSION_HOURS_EFFECTIVE, [ref]$sessionHours) -or $sessionHours -le 0) {
     $sessionHours = 5.9
 }
-$deadline = (Get-Date).AddHours($sessionHours)
-$endsAt = $deadline.ToString('yyyy-MM-dd HH:mm') + ' UTC'
+# Anchor the deadline to UTC. Set-TimeZone (personalization step) may have
+# moved the machine's local clock before this step runs, so Get-Date would
+# yield wall-clock values that are mislabeled if printed as UTC. UtcNow is
+# timezone-proof for both the elapsed math and the displayed end time.
+$deadlineUtc = [DateTimeOffset]::UtcNow.AddHours($sessionHours)
+$endsAt = $deadlineUtc.ToString('yyyy-MM-dd HH:mm') + ' UTC'
+$endsAtLocal = $deadlineUtc.LocalDateTime.ToString('yyyy-MM-dd HH:mm')
 $currentIp = $env:TAILSCALE_IP
 $notifyScript = Join-Path $PSScriptRoot 'Notify-Session.ps1'
 
@@ -101,7 +106,7 @@ $credsHint
 - **Theme:** $($env:THEME)$timeZoneNote
 - **Wallpaper:** $(if (-not [string]::IsNullOrWhiteSpace($env:WALLPAPER_NOTE)) { $env:WALLPAPER_NOTE } else { 'system default' })
 - **Applications:** $appsStatus$storageNote
-- **Ends at:** $endsAt - the environment is destroyed shortly after; store nothing here.
+- **Ends at:** $endsAt (session-local: $endsAtLocal) - the environment is destroyed shortly after; store nothing here.
 
 > ⚠️ **Concurrency warning:** starting a NEW run of this workflow cancels this
 > session immediately. Cancel from the Actions tab when you are done.
@@ -123,8 +128,8 @@ $tailscaleExe = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
 $repairAttempts = 0
 Write-Host "`nSession is live. Health checks run every 5 minutes (with Tailscale auto-repair)." -ForegroundColor Green
 while ($true) {
-    $now = Get-Date
-    if ($now -ge $deadline) { break }
+    $nowUtc = [DateTimeOffset]::UtcNow
+    if ($nowUtc -ge $deadlineUtc) { break }
 
     $tailscaleService = Get-Service -Name 'Tailscale' -ErrorAction SilentlyContinue
     $serviceOk = ($null -ne $tailscaleService -and $tailscaleService.Status -eq 'Running')
@@ -136,11 +141,21 @@ while ($true) {
     $rdpListener = Get-NetTCPConnection -LocalPort 3389 -State Listen -ErrorAction SilentlyContinue
     $rdpOk = ($null -ne $rdpListener)
 
-    if ($serviceOk -and -not $connectedOk -and $repairAttempts -lt 3) {
-        # The node dropped off the tailnet (network blip, control-plane hiccup).
-        # Re-join with the same ephemeral key; the IP may change afterwards.
+    # Repair covers BOTH failure shapes: the node dropping off the tailnet
+    # while the service runs, AND the service itself having stopped (start it,
+    # then re-join with the same ephemeral key; the IP may change afterwards).
+    if (-not $connectedOk -and $repairAttempts -lt 3) {
         $repairAttempts++
-        Write-Host "::notice::Tailscale reported disconnected - repair attempt $repairAttempts/3 at $($now.ToString('HH:mm:ss'))"
+        Write-Host "::notice::Tailscale unhealthy (service running: $serviceOk; connected: $connectedOk) - repair attempt $repairAttempts/3 at $($nowUtc.ToString('HH:mm:ss'))"
+        if (-not $serviceOk) {
+            try {
+                Start-Service -Name 'Tailscale' -ErrorAction Stop
+                Start-Sleep -Seconds 5
+                Write-Ok 'Tailscale service started'
+            } catch {
+                Write-Warn "Could not start the Tailscale service: $($_.Exception.Message)"
+            }
+        }
         & $tailscaleExe up --authkey=$env:TAILSCALE_AUTH_KEY --hostname="winrdp-$env:GITHUB_RUN_ID" *> $null
         Start-Sleep -Seconds 10
         $newIp = (& $tailscaleExe ip -4 2>$null | Select-Object -First 1)
@@ -149,18 +164,20 @@ while ($true) {
             $currentIp = $newIp
             $ipUpdate = "`n---`n## ⚠️ IP UPDATED`n`nThe session reconnected and its Tailscale address changed: ``$oldIp`` -> ``$newIp``. Use the new address; credentials are unchanged.`n"
             Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $ipUpdate -Encoding utf8
-            & $notifyScript -Message "⚠️ LazyRDP reconnected with a NEW Tailscale IP: $newIp (was $oldIp). Credentials unchanged. Ends: $endsAt UTC."
+            & $notifyScript -Message "⚠️ LazyRDP reconnected with a NEW Tailscale IP: $newIp (was $oldIp). Credentials unchanged. Ends: $endsAt."
             Write-Host "::notice::Tailscale IP changed to $newIp - the Summary and your channels were updated."
         }
-    } elseif ($serviceOk -and -not $connectedOk) {
-        Write-Host "::notice::Tailscale still disconnected after $repairAttempts repair attempts (at $($now.ToString('HH:mm:ss')))."
+    } elseif (-not $connectedOk) {
+        Write-Host "::notice::Tailscale still unhealthy after $repairAttempts repair attempts (service running: $serviceOk; connected: $connectedOk) at $($nowUtc.ToString('HH:mm:ss'))."
     }
 
     if (-not $rdpOk) {
-        Write-Host "::notice::Health deviation at $($now.ToString('HH:mm:ss')) - RDP listener on 3389: $rdpOk"
+        Write-Host "::notice::Health deviation at $($nowUtc.ToString('HH:mm:ss')) - RDP listener on 3389: $rdpOk"
     }
-    $remaining = $deadline - $now
-    Write-Host ("[{0:HH:mm:ss}] Session healthy - {1:00}h {2:00}m remaining." -f $now, [int][Math]::Floor($remaining.TotalHours), $remaining.Minutes)
+    if ($serviceOk -and $connectedOk -and $rdpOk) {
+        $remaining = $deadlineUtc - $nowUtc
+        Write-Host ("[{0}] Session healthy - {1:00}h {2:00}m remaining." -f $nowUtc.LocalDateTime.ToString('HH:mm:ss'), [int][Math]::Floor($remaining.TotalHours), $remaining.Minutes)
+    }
     Start-Sleep -Seconds 300
 }
 
