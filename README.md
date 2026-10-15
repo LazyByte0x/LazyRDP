@@ -115,7 +115,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 |---------|----------------------|
 | Run fails at pre-flight: `TAILSCALE_AUTH_KEY secret is not set` | Add the secret as described in step 4 |
 | Run fails at the Tailscale step | The auth key expired, is single-use, or was already consumed — generate a new Ephemeral + Reusable key |
-| No Telegram/Discord message | Check the "Publish summary" step log — each channel prints its delivery failure reason; the credentials are in the Summary meanwhile |
+| No Telegram/Discord message | Check the `NOTIFY: Telegram=... \| Discord=...` verdict line in the "Publish summary" step log. Secrets are snapshotted at run start — if you added them after starting, start a NEW run. The credentials are in the Summary meanwhile |
 | Cannot connect from your device | Your device must be signed in to the **same tailnet**; check the Tailscale client status before blaming the session |
 | IP stopped working mid-session | The watchdog repaired a drop and the IP changed — the Summary has an "IP UPDATED" section and your channels got the new address |
 | Wrong credentials | Credentials differ per run; read them from the **notification channel or the Summary of that specific run** |
@@ -131,6 +131,7 @@ All provisioning logic lives in `scripts/*.ps1`; the workflow file is a thin orc
 ### v8.1
 - **Masked password mode (XyRDP-style):** set the optional `RDP_PASSWORD` secret to use your own session password — no password is then displayed in the Summary or transmitted through any notification. Without it, per-run random passwords keep the deliver-then-fallback behavior.
 - **Wallpaper robustness:** images are now verified by file signature (magic bytes) when headers lie; a branded default wallpaper bundled in the repo (`assets/wallpaper.jpg`) is applied whenever the custom URL fails, and the exact failure reason (status/content-type) is logged and shown in the Summary.
+- **Unambiguous delivery verdicts:** every channel prints a `NOTIFY: Telegram=DELIVERED|FAILED|NOT_CONFIGURED` line, the delivery state is published to a temp file the Summary step re-reads (no reliance on output capture), and the Summary clarifies that secrets are snapshotted at run start — adding secrets after starting a run requires a new run.
 
 ### v8.0
 - **Private credential delivery:** Telegram and/or Discord receive the full connection details when the session is ready; the Summary hides passwords unless no channel delivered (fallback keeps them reachable). New optional secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DISCORD_WEBHOOK_URL`.

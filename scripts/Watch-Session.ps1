@@ -40,6 +40,15 @@ Connect: sign in to Tailscale, then open any RDP client (Windows: mstsc) to the 
 # style), generated + delivered (hidden, private channel won), generated +
 # nothing delivered (fallback: the Summary is the only way to get them).
 $delivered = @(& $notifyScript -Message (Get-SessionMessage -Ip $currentIp))
+# Prefer the file verdict Notify-Session published (robust across scopes);
+# fall back to the output capture if the file is missing.
+$deliveryStateFile = Join-Path ($env:RUNNER_TEMP) 'lazyrdp-delivery.txt'
+if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { $deliveryStateFile = Join-Path $env:TEMP 'lazyrdp-delivery.txt' }
+if (Test-Path $deliveryStateFile) {
+    $raw = Get-Content -Path $deliveryStateFile -Raw -ErrorAction SilentlyContinue
+    if ($null -eq $raw) { $raw = '' }
+    $delivered = @($raw.Trim() -split ',' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
 
 # --- Session summary ------------------------------------------------------------
 $failedApps = $env:APPS_FAILED
@@ -90,7 +99,8 @@ password is displayed here or sent through any channel.
 > ⚠️ **Privacy note:** no notification channel was configured or reachable, so
 > the credentials are shown here - visible to anyone who can view this
 > repository's Actions runs. Configure ``TELEGRAM_BOT_TOKEN`` + ``TELEGRAM_CHAT_ID``
-> or ``DISCORD_WEBHOOK_URL`` secrets for private delivery.
+> or ``DISCORD_WEBHOOK_URL`` secrets for private delivery. Secrets are read
+> when the run STARTS - if you added them after starting, start a new run.
 "@
     Write-Host '::notice::Credentials were not delivered to any private channel - showing them in the Summary as a fallback.'
 }

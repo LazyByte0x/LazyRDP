@@ -42,10 +42,22 @@ function Send-Discord {
 }
 
 $delivered = @()
-if (Send-Telegram -Message $Message) { $delivered += 'Telegram' }
-if (Send-Discord -Message $Message) { $delivered += 'Discord' }
+$telegramState = if ([string]::IsNullOrWhiteSpace($env:TELEGRAM_BOT_TOKEN) -or [string]::IsNullOrWhiteSpace($env:TELEGRAM_CHAT_ID)) { 'NOT_CONFIGURED' } else { 'FAILED' }
+if (Send-Telegram -Message $Message) { $delivered += 'Telegram'; $telegramState = 'DELIVERED' }
+$discordState = if ([string]::IsNullOrWhiteSpace($env:DISCORD_WEBHOOK_URL)) { 'NOT_CONFIGURED' } else { 'FAILED' }
+if (Send-Discord -Message $Message) { $delivered += 'Discord'; $discordState = 'DELIVERED' }
 
+# One unambiguous verdict line per channel, always printed.
+Write-Host "NOTIFY: Telegram=$telegramState | Discord=$discordState"
 if ($delivered.Count -gt 0) {
     Write-Ok "Notification delivered via: $($delivered -join ', ')"
 }
+
+# Publish the verdict to a temp file. This is the most robust cross-scope
+# channel: GITHUB_ENV only applies between steps (not within one), and the
+# consumer can always re-read a file even if output capture were disturbed.
+$stateDir = $env:RUNNER_TEMP
+if ([string]::IsNullOrWhiteSpace($stateDir)) { $stateDir = $env:TEMP }
+$stateFile = Join-Path $stateDir 'lazyrdp-delivery.txt'
+Set-Content -Path $stateFile -Value ($delivered -join ',') -Encoding utf8
 $delivered
